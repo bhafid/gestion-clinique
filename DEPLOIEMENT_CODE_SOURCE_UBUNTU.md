@@ -121,11 +121,13 @@ Chaque fois que vous modifiez le code sur Windows :
    ```
 2. **Sur Ubuntu** :
    ```bash
-   cd /var/www/clinic
-   git pull
+   cd /var/www/html/clinic
+   git fetch origin main
+   git reset --hard origin/main
    source venv/bin/activate
    pip install -r requirements.txt
    python manage.py migrate
+   python manage.py seed_hospital_data
    python manage.py collectstatic --noinput
    sudo systemctl restart clinic.service
    ```
