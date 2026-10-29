@@ -34,13 +34,16 @@ DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = [
     h.strip()
-    for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",")
+    for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1],204.216.108.214,*").split(",")
     if h.strip()
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
-    for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    for o in os.getenv(
+        "DJANGO_CSRF_TRUSTED_ORIGINS",
+        "http://204.216.108.214,https://204.216.108.214,http://localhost:8000,http://127.0.0.1:8000",
+    ).split(",")
     if o.strip()
 ]
 

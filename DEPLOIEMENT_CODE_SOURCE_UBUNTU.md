@@ -129,7 +129,10 @@ Chaque fois que vous modifiez le code sur Windows :
    python manage.py migrate
    python manage.py seed_hospital_data
    python manage.py collectstatic --noinput
+   sudo chown -R $USER:www-data /var/www/html/clinic
+   sudo chmod -R 775 /var/www/html/clinic
    sudo systemctl restart clinic.service
+   sudo systemctl restart nginx
    ```
 
 ---

@@ -4,8 +4,10 @@ Intègre le Dashboard hebdomadaire, l'interface d'administration personnalisée 
 et l'accès modulaire aux différentes spécialités hospitalières.
 """
 
+from django.conf import settings
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.static import serve
 
 from apps.core.views import HospitalLoginView, WeeklyDashboardView, hospital_logout_view
 
@@ -34,5 +36,8 @@ urlpatterns = [
     path("maternite/", include("apps.gynecologie_maternite.urls", namespace="gynecologie_maternite")),
     path("pediatrie/", include("apps.pediatrie.urls", namespace="pediatrie")),
     path("urologie/", include("apps.urologie.urls", namespace="urologie")),
+
+    # Service direct des fichiers statiques (CSS/JS Admin) même via Gunicorn (:8000)
+    re_path(r"^static/(?P<path>.*)$", serve, {"document_root": settings.STATIC_ROOT}),
 ]
 
