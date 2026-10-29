@@ -66,6 +66,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.core.middleware.StrictAuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -129,6 +130,11 @@ else:
 
 # Modèle Utilisateur Personnalisé pour le Personnel Médical (RBAC)
 AUTH_USER_MODEL = "core.CustomUser"
+
+# Redirections d'authentification (Aucun accès anonyme autorisé)
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/login/"
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

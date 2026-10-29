@@ -7,7 +7,9 @@ from .models import SurgicalIntervention, SafetyChecklistOMS, OperativeReport
 
 
 def user_has_chirurgien_or_medecin(user):
-    return user.is_authenticated and user.role in [UserRole.CHIRURGIEN, UserRole.MEDECIN]
+    return user.is_authenticated and (
+        user.is_superuser or user.role in [UserRole.ADMIN, UserRole.CHIRURGIEN, UserRole.MEDECIN]
+    )
 
 
 class RoleRequiredMixin(UserPassesTestMixin):

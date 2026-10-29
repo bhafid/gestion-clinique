@@ -6,7 +6,9 @@ from apps.core.models import UserRole
 from .models import UrologicalHistory, UrodynamicAssessment, SpecializedInterventionReport
 
 def user_has_urologie_role(user):
-    return user.is_authenticated and user.role in [UserRole.MEDECIN, UserRole.CHIRURGIEN]
+    return user.is_authenticated and (
+        user.is_superuser or user.role in [UserRole.ADMIN, UserRole.MEDECIN, UserRole.CHIRURGIEN]
+    )
 
 class RoleRequiredMixin(UserPassesTestMixin):
     """Mixin restricting access to urology roles (MEDECIN, CHIRURGIEN)."""

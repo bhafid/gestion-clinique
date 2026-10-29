@@ -7,7 +7,7 @@ et l'accès modulaire aux différentes spécialités hospitalières.
 from django.contrib import admin
 from django.urls import include, path
 
-from apps.core.views import WeeklyDashboardView
+from apps.core.views import HospitalLoginView, WeeklyDashboardView, hospital_logout_view
 
 # -----------------------------------------------------------------------------
 # Personnalisation de l'Administration Hospitalière (Branding & HDS)
@@ -18,7 +18,11 @@ admin.site.site_title = "SIH - Dossiers Patients & Soins"
 admin.site.index_title = "Supervision Hospitalière & Gestion des Pôles Cliniques"
 
 urlpatterns = [
-    # Tableau de bord hebdomadaire (Accueil)
+    # Authentification unifiée multi-rôles (aucun accès anonyme)
+    path("login/", HospitalLoginView.as_view(), name="login"),
+    path("logout/", hospital_logout_view, name="logout"),
+
+    # Tableau de bord hebdomadaire (Accueil protégé)
     path("", WeeklyDashboardView.as_view(), name="home_dashboard"),
     
     # Interface d'Administration Sécurisée

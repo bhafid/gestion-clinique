@@ -6,24 +6,126 @@ Extraction de la capacité des lits par service et matrice des gardes et astrein
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List
 
+from django.contrib.auth import logout
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import LoginView
 from django.db.models import Count, Q
-from django.shortcuts import render
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.generic import TemplateView
 
 from .models import (
     Bed,
     BedStatus,
+    CustomUser,
     Department,
     DutyShift,
     Hospitalization,
     ShiftReplacement,
     ShiftReplacementStatus,
     ShiftType,
+    UserRole,
 )
 
 
-class WeeklyDashboardView(TemplateView):
+class HospitalLoginView(LoginView):
+    """
+    Portail d'authentification unifié pour tous les utilisateurs du SIH
+    (Administrateur, Chirurgien, Médecin, Sage-Femme, Infirmier, Secrétaire).
+    """
+
+    template_name = "registration/login.html"
+    redirect_authenticated_user = True
+
+    def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["role_choices"] = UserRole.choices
+        return context
+
+
+def hospital_logout_view(request: HttpRequest) -> HttpResponse:
+    """Déconnecte l'utilisateur et redirige vers la page de login."""
+    logout(request)
+    return redirect("login")
+
+
+ROLE_PORTAL_CONFIG: Dict[str, Dict[str, Any]] = {
+    UserRole.ADMIN: {
+        "badge_class": "bg-purple-100 text-purple-800 border-purple-200",
+        "description": "Supervision intégrale du SIH : Gestion du personnel, tous les pôles cliniques, DPI, lits et validation des remplacements.",
+        "actions": [
+            {"label": "Gestion du Personnel & Rôles", "url": "/admin/core/customuser/"},
+            {"label": "Dossiers Patients (DPI)", "url": "/admin/core/patient/"},
+            {"label": "Pôle Chirurgie & Bloc", "url": "/chirurgie/intervention/"},
+            {"label": "Pôle Pédiatrie", "url": "/pediatrie/anthropometry/"},
+            {"label": "Pôle Urologie", "url": "/urologie/intervention/"},
+            {"label": "Gynéco & Maternité", "url": "/admin/gynecologie_maternite/"},
+            {"label": "Validation Remplacements", "url": "/admin/core/shiftreplacement/"},
+        ],
+    },
+    UserRole.CHIRURGIEN: {
+        "badge_class": "bg-rose-100 text-rose-800 border-rose-200",
+        "description": "Accès Chirurgical & Bloc Opératoire : Interventions, Checklists OMS, Comptes-rendus opératoires (CRO), Urologie et DPI.",
+        "actions": [
+            {"label": "Bloc & Interventions", "url": "/chirurgie/intervention/"},
+            {"label": "Nouvelle Intervention", "url": "/chirurgie/intervention/create/"},
+            {"label": "Actes Urologiques", "url": "/urologie/intervention/"},
+            {"label": "Dossiers Patients (DPI)", "url": "/admin/core/patient/"},
+            {"label": "Mes Rendez-vous", "url": "/admin/core/appointment/"},
+            {"label": "Demander Remplacement", "url": "/admin/core/shiftreplacement/add/"},
+        ],
+    },
+    UserRole.MEDECIN: {
+        "badge_class": "bg-sky-100 text-sky-800 border-sky-200",
+        "description": "Accès Médical Praticien : Consultations spécialisées, Dossiers Patients (DPI), Hospitalisations, Pédiatrie, Maternité et Urologie.",
+        "actions": [
+            {"label": "Dossiers Patients (DPI)", "url": "/admin/core/patient/"},
+            {"label": "Consultations & RDV", "url": "/admin/core/appointment/"},
+            {"label": "Hospitalisations", "url": "/admin/core/hospitalization/"},
+            {"label": "Suivi Pédiatrique", "url": "/pediatrie/anthropometry/"},
+            {"label": "Bilans Urodynamiques", "url": "/urologie/assessment/"},
+            {"label": "Suivi Grossesses", "url": "/admin/gynecologie_maternite/pregnancytracking/"},
+        ],
+    },
+    UserRole.SAGE_FEMME: {
+        "badge_class": "bg-pink-100 text-pink-800 border-pink-200",
+        "description": "Accès Gynécologie-Obstétrique & Salle de Naissance : Suivi de grossesse, Registre d'accouchements (APGAR) et Néonatalogie.",
+        "actions": [
+            {"label": "Registre Accouchements", "url": "/admin/gynecologie_maternite/deliveryregistry/"},
+            {"label": "Suivi des Grossesses", "url": "/admin/gynecologie_maternite/pregnancytracking/"},
+            {"label": "Consultations Maternité", "url": "/admin/gynecologie_maternite/routineconsultation/"},
+            {"label": "Biométrie Nouveau-nés", "url": "/pediatrie/anthropometry/"},
+            {"label": "Dossiers Patientes (DPI)", "url": "/admin/core/patient/"},
+        ],
+    },
+    UserRole.INFIRMIER: {
+        "badge_class": "bg-emerald-100 text-emerald-800 border-emerald-200",
+        "description": "Accès Soins Infirmiers (IDE / IBODE) : Gestion de l'état des lits (Désinfection/Disponible), Checklists OMS, Vaccinations et Soins.",
+        "actions": [
+            {"label": "Statut & Désinfection des Lits", "url": "/admin/core/bed/"},
+            {"label": "Séjours & Hospitalisations", "url": "/admin/core/hospitalization/"},
+            {"label": "Calendrier Vaccinal", "url": "/pediatrie/vaccination/"},
+            {"label": "Relevés Anthropométriques", "url": "/pediatrie/anthropometry/"},
+            {"label": "Checklists Bloc OMS", "url": "/admin/chirurgie/safetychecklistoms/"},
+            {"label": "Demander Remplacement", "url": "/admin/core/shiftreplacement/add/"},
+        ],
+    },
+    UserRole.SECRETAIRE: {
+        "badge_class": "bg-amber-100 text-amber-800 border-amber-200",
+        "description": "Accès Secrétariat Médical & Admissions : Création des Dossiers Patients (DPI), Planification des Rendez-vous et Admissions.",
+        "actions": [
+            {"label": "Nouveau Patient (DPI)", "url": "/admin/core/patient/add/"},
+            {"label": "Liste des Patients", "url": "/admin/core/patient/"},
+            {"label": "Planifier un Rendez-vous", "url": "/admin/core/appointment/add/"},
+            {"label": "Agenda des Rendez-vous", "url": "/admin/core/appointment/"},
+            {"label": "Nouvelle Admission", "url": "/admin/core/hospitalization/add/"},
+        ],
+    },
+}
+
+
+class WeeklyDashboardView(LoginRequiredMixin, TemplateView):
     """
     Tableau de bord hospitalier interactif :
     1. État en temps réel de la capacité des lits (Total, Disponibles, Occupés, En nettoyage).
@@ -181,6 +283,9 @@ class WeeklyDashboardView(TemplateView):
                 "days_list": days_list,
             })
 
+        user_role = getattr(request.user, "role", UserRole.MEDECIN)
+        role_config = ROLE_PORTAL_CONFIG.get(user_role, ROLE_PORTAL_CONFIG[UserRole.MEDECIN])
+
         context.update({
             "monday": monday,
             "sunday": sunday,
@@ -201,6 +306,7 @@ class WeeklyDashboardView(TemplateView):
             "planning_matrix": matrix_rows,
             "BedStatus": BedStatus,
             "ShiftType": ShiftType,
+            "role_config": role_config,
         })
         return context
 

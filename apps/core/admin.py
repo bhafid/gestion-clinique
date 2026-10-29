@@ -34,6 +34,10 @@ class CustomUserAdmin(UserAdmin):
         ("Affectation Médicale & RBAC (HDS)", {"fields": ("role", "department", "license_number", "phone_number")}),
     )
 
+    def save_model(self, request, obj: CustomUser, form, change) -> None:
+        super().save_model(request, obj, form, change)
+        obj.sync_role_permissions()
+
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):

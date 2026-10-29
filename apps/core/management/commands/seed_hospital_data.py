@@ -103,6 +103,7 @@ class Command(BaseCommand):
             ("inf_julie_ped", "Julie", "Boucher", UserRole.INFIRMIER, "PED", "RPPS-3030302"),
             ("dr_yves_uro", "Yves", "Carpentier", UserRole.CHIRURGIEN, "URO", "RPPS-4040401"),
             ("dr_anne_uro", "Anne", "Lambert", UserRole.MEDECIN, "URO", "RPPS-4040402"),
+            ("sec_nadia", "Nadia", "Benali", UserRole.SECRETAIRE, "URG", "ADELI-5050501"),
         ]
 
         users = {}
@@ -120,7 +121,8 @@ class Command(BaseCommand):
             )
             if created:
                 u.set_password("HospitalPass123!")
-                u.save()
+            u.save()
+            u.sync_role_permissions()
             users[uname] = u
 
         # 3. Lits par service

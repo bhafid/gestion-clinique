@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion Sécurisée - Clinique Sidi Yahia 2 (SIH)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="min-h-full flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 text-slate-800 antialiased">
+
+    <div class="max-w-5xl w-full mx-auto">
+        <!-- Header Branding -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-hospital-700 to-hospital-500 text-white shadow-lg shadow-hospital-500/30 mb-3">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Clinique Sidi Yahia 2
+            </h1>
+            <p class="mt-1 text-sm text-slate-600">
+                Portail Médical Sécurisé (SIH) &bull; Authentification Obligatoire Multi-Rôles (RBAC)
+            </p>
+            <div class="mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span class="w-2 h-2 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Accès Anonyme Interdit &mdash; Conformité HDS &amp; RGPD
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <!-- Colonne Gauche : Formulaire de Connexion -->
+            <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                <h2 class="text-lg font-bold text-slate-900 mb-1">Identification du Personnel</h2>
+                <p class="text-xs text-slate-500 mb-6">Veuillez saisir vos identifiants professionnels pour accéder à votre espace métier.</p>
+
+                {% if form.errors %}
+                <div class="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium flex items-start gap-2">
+                    <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Identifiant ou mot de passe incorrect. Veuillez vérifier vos informations.</span>
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'login' %}" class="space-y-4" id="loginForm">
+                    {% csrf_token %}
+                    {% if next %}
+                    <input type="hidden" name="next" value="{{ next }}">
+                    {% endif %}
+
+                    <div>
+                        <label for="id_username" class="block text-xs font-semibold text-slate-700 mb-1">
+                            Identifiant utilisateur
+                        </label>
+                        <input
+                            type="text"
+                            name="username"
+                            id="id_username"
+                            required
+                            autofocus
+                            placeholder="Ex: admin, dr_alain_chir, sec_nadia..."
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-hospital-600 focus:ring-2 focus:ring-hospital-500/20 focus:outline-none"
+                        >
+                    </div>
+
+                    <div>
+                        <label for="id_password" class="block text-xs font-semibold text-slate-700 mb-1">
+                            Mot de passe
+                        </label>
+                        <input
+                            type="password"
+                            name="password"
+                            id="id_password"
+                            required
+                            placeholder="••••••••••••"
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-hospital-600 focus:ring-2 focus:ring-hospital-500/20 focus:outline-none"
+                        >
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="w-full py-2.5 px-4 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white font-semibold text-sm shadow-sm shadow-hospital-500/20 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                        </svg>
+                        Se connecter au SIH
+                    </button>
+                </form>
+
+                <div class="mt-6 pt-5 border-t border-slate-100 text-[11px] text-slate-400 space-y-1">
+                    <p>&bull; Session médicale limitée à 8h avec déconnexion automatique.</p>
+                    <p>&bull; Toute consultation ou modification de DPI est journalisée.</p>
+                </div>
+            </div>
+
+            <!-- Colonne Droite : Sélection Rapide par Rôle (6 profils métiers) -->
+            <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-base font-bold text-slate-900">Profils &amp; Rôles Hospitaliers (RBAC)</h2>
+                    <span class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-hospital-50 text-hospital-700 border border-hospital-200">
+                        6 Rôles Configurés
+                    </span>
+                </div>
+                <p class="text-xs text-slate-500 mb-4">
+                    Cliquez sur un profil ci-dessous pour pré-remplir automatiquement ses identifiants et tester ses droits d'accès spécifiques :
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <!-- 1. Administrateur -->
+                    <button type="button" onclick="fillAccount('admin', 'AdminPassword123!')" class="text-left p-3.5 rounded-xl border border-slate-200 hover:border-purple-400 hover:bg-purple-50/40 transition-all group">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-purple-100 text-purple-800">Administrateur</span>
+                            <span class="text-[11px] font-mono text-slate-400 group-hover:text-purple-700">admin</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-900 mt-1.5">Directeur Médical</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Accès total : Personnel, tous pôles, lits, gardes &amp; validations.</p>
+                    </button>
+
+                    <!-- 2. Chirurgien -->
+                    <button type="button" onclick="fillAccount('dr_alain_chir', 'HospitalPass123!')" class="text-left p-3.5 rounded-xl border border-slate-200 hover:border-rose-400 hover:bg-rose-50/40 transition-all group">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-rose-100 text-rose-800">Chirurgien</span>
+                            <span class="text-[11px] font-mono text-slate-400 group-hover:text-rose-700">dr_alain_chir</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-900 mt-1.5">Dr Alain Rousseau (CHIR)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Bloc opératoire, Checklists OMS, CRO, Urologie &amp; DPI.</p>
+                    </button>
+
+                    <!-- 3. Médecin Praticien -->
+                    <button type="button" onclick="fillAccount('dr_marc_ped', 'HospitalPass123!')" class="text-left p-3.5 rounded-xl border border-slate-200 hover:border-sky-400 hover:bg-sky-50/40 transition-all group">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-sky-100 text-sky-800">Médecin Praticien</span>
+                            <span class="text-[11px] font-mono text-slate-400 group-hover:text-sky-700">dr_marc_ped</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-900 mt-1.5">Dr Marc Fontaine (PED)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Consultations, DPI, Pédiatrie, Maternité, Urologie &amp; Séjours.</p>
+                    </button>
+
+                    <!-- 4. Sage-Femme -->
+                    <button type="button" onclick="fillAccount('sf_elodie_mat', 'HospitalPass123!')" class="text-left p-3.5 rounded-xl border border-slate-200 hover:border-pink-400 hover:bg-pink-50/40 transition-all group">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-pink-100 text-pink-800">Sage-Femme</span>
+                            <span class="text-[11px] font-mono text-slate-400 group-hover:text-pink-700">sf_elodie_mat</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-900 mt-1.5">Élodie Giraud (MAT)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Suivi de grossesse, Salle de naissance (APGAR) &amp; Nouveau-nés.</p>
+                    </button>
+
+                    <!-- 5. Infirmier(e) D.E. -->
+                    <button type="button" onclick="fillAccount('inf_paul_chir', 'HospitalPass123!')" class="text-left p-3.5 rounded-xl border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 transition-all group">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-emerald-100 text-emerald-800">Infirmier(e) D.E.</span>
+                            <span class="text-[11px] font-mono text-slate-400 group-hover:text-emerald-700">inf_paul_chir</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-900 mt-1.5">Paul Lefevre (CHIR)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Statut &amp; désinfection des lits, soins, vaccinations &amp; checklists.</p>
+                    </button>
+
+                    <!-- 6. Secrétaire Médicale -->
+                    <button type="button" onclick="fillAccount('sec_nadia', 'HospitalPass123!')" class="text-left p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-amber-50/40 transition-all group">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-amber-100 text-amber-800">Secrétaire Médicale</span>
+                            <span class="text-[11px] font-mono text-slate-400 group-hover:text-amber-700">sec_nadia</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-900 mt-1.5">Nadia Benali (Accueil)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Création DPI Patients, planification des RDV &amp; Admissions.</p>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function fillAccount(username, password) {
+            document.getElementById('id_username').value = username;
+            document.getElementById('id_password').value = password;
+            document.getElementById('loginForm').submit();
+        }
+    </script>
+</body>
+</html>
+

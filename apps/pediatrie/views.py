@@ -7,7 +7,9 @@ from .models import AnthropometricRecord, VaccinationRecord
 
 
 def user_has_pediatrie_role(user):
-    return user.is_authenticated and user.role in [UserRole.MEDECIN, UserRole.INFIRMIER]
+    return user.is_authenticated and (
+        user.is_superuser or user.role in [UserRole.ADMIN, UserRole.MEDECIN, UserRole.INFIRMIER, UserRole.SAGE_FEMME]
+    )
 
 
 class RoleRequiredMixin(UserPassesTestMixin):

@@ -236,13 +236,23 @@ class CoreModuleTestCase(TestCase):
         replacement_valid.save()
         self.assertIsNotNone(replacement_valid.id)
 
-    def test_weekly_dashboard_view_http(self) -> None:
-        """Vérifie l'accès HTTP 200 à la vue du tableau de bord hebdomadaire."""
+    def test_anonymous_access_blocked(self) -> None:
+        """Vérifie qu'aucun accès anonyme n'est autorisé et redirige vers /login/."""
         client = Client()
+        response = client.get(reverse("home_dashboard"))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith("/login/"))
+
+    def test_weekly_dashboard_view_http(self) -> None:
+        """Vérifie l'accès HTTP 200 à la vue du tableau de bord hebdomadaire après connexion."""
+        client = Client()
+        client.force_login(self.doctor_chir)
         response = client.get(reverse("home_dashboard"))
         self.assertEqual(response.status_code, 200)
         self.assertIn("total_beds", response.context)
         self.assertIn("planning_matrix", response.context)
         self.assertContains(response, "Capacité Hospitalière")
         self.assertContains(response, "Chirurgie Générale")
+        self.assertContains(response, "Chirurgien")
+
 

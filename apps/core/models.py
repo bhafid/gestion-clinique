@@ -115,6 +115,102 @@ class CustomUser(AbstractUser):
     def is_medical_doctor(self) -> bool:
         return self.role in (UserRole.MEDECIN, UserRole.CHIRURGIEN)
 
+    def save(self, *args, **kwargs) -> None:
+        """
+        Active automatiquement l'accès au portail métier (is_staff) pour le personnel actif
+        et les droits superutilisateur pour le rôle ADMIN.
+        """
+        if self.is_active:
+            self.is_staff = True
+        if self.role == UserRole.ADMIN:
+            self.is_superuser = True
+        super().save(*args, **kwargs)
+
+    def sync_role_permissions(self) -> None:
+        """
+        Attribue automatiquement les permissions Django (RBAC) correspondant au rôle hospitalier.
+        Permet à chaque profil (Médecin, Chirurgien, Sage-Femme, Infirmier, Secrétaire, Admin)
+        d'accéder uniquement aux modules autorisés dans le portail métier.
+        """
+        from django.contrib.auth.models import Permission
+
+        if self.role == UserRole.ADMIN:
+            self.is_superuser = True
+            self.is_staff = True
+            super().save(update_fields=["is_superuser", "is_staff"])
+            return
+
+        role_codenames = {
+            UserRole.CHIRURGIEN: [
+                # Core
+                "view_department", "view_patient", "add_patient", "change_patient",
+                "view_appointment", "add_appointment", "change_appointment",
+                "view_bed", "view_hospitalization", "add_hospitalization", "change_hospitalization",
+                "view_dutyshift", "view_shiftreplacement", "add_shiftreplacement",
+                # Chirurgie
+                "view_operatingroom", "view_surgicalintervention", "add_surgicalintervention", "change_surgicalintervention",
+                "view_safetychecklistoms", "add_safetychecklistoms", "change_safetychecklistoms",
+                "view_operativereport", "add_operativereport", "change_operativereport",
+                # Urologie
+                "view_urologicalhistory", "add_urologicalhistory", "change_urologicalhistory",
+                "view_urodynamicassessment", "add_urodynamicassessment", "change_urodynamicassessment",
+                "view_specializedinterventionreport", "add_specializedinterventionreport", "change_specializedinterventionreport",
+            ],
+            UserRole.MEDECIN: [
+                # Core
+                "view_department", "view_patient", "add_patient", "change_patient",
+                "view_appointment", "add_appointment", "change_appointment",
+                "view_bed", "view_hospitalization", "add_hospitalization", "change_hospitalization",
+                "view_dutyshift", "view_shiftreplacement", "add_shiftreplacement",
+                # Spécialités médicales
+                "view_gynecologicalhistory", "add_gynecologicalhistory", "change_gynecologicalhistory",
+                "view_routineconsultation", "add_routineconsultation", "change_routineconsultation",
+                "view_pregnancytracking", "add_pregnancytracking", "change_pregnancytracking",
+                "view_deliveryregistry", "add_deliveryregistry", "change_deliveryregistry",
+                "view_anthropometricrecord", "add_anthropometricrecord", "change_anthropometricrecord",
+                "view_vaccinationrecord", "add_vaccinationrecord", "change_vaccinationrecord",
+                "view_urologicalhistory", "add_urologicalhistory", "change_urologicalhistory",
+                "view_urodynamicassessment", "add_urodynamicassessment", "change_urodynamicassessment",
+                "view_specializedinterventionreport",
+                "view_surgicalintervention", "view_operativereport",
+            ],
+            UserRole.SAGE_FEMME: [
+                # Core
+                "view_department", "view_patient", "add_patient", "change_patient",
+                "view_appointment", "add_appointment", "change_appointment",
+                "view_bed", "change_bed", "view_hospitalization", "add_hospitalization", "change_hospitalization",
+                "view_dutyshift", "view_shiftreplacement", "add_shiftreplacement",
+                # Maternité & Nouveau-nés
+                "view_gynecologicalhistory", "add_gynecologicalhistory", "change_gynecologicalhistory",
+                "view_routineconsultation", "add_routineconsultation", "change_routineconsultation",
+                "view_pregnancytracking", "add_pregnancytracking", "change_pregnancytracking",
+                "view_deliveryregistry", "add_deliveryregistry", "change_deliveryregistry",
+                "view_anthropometricrecord", "add_anthropometricrecord", "change_anthropometricrecord",
+                "view_vaccinationrecord", "add_vaccinationrecord",
+            ],
+            UserRole.INFIRMIER: [
+                # Core (Soins, Lits & Gardes)
+                "view_department", "view_patient", "view_appointment",
+                "view_bed", "change_bed", "view_hospitalization", "change_hospitalization",
+                "view_dutyshift", "view_shiftreplacement", "add_shiftreplacement",
+                # Bloc & Pédiatrie
+                "view_surgicalintervention", "view_safetychecklistoms", "add_safetychecklistoms", "change_safetychecklistoms",
+                "view_anthropometricrecord", "add_anthropometricrecord", "change_anthropometricrecord",
+                "view_vaccinationrecord", "add_vaccinationrecord", "change_vaccinationrecord",
+            ],
+            UserRole.SECRETAIRE: [
+                # Accueil, DPI, Rendez-vous & Admissions
+                "view_department", "view_patient", "add_patient", "change_patient",
+                "view_appointment", "add_appointment", "change_appointment", "delete_appointment",
+                "view_bed", "view_hospitalization", "add_hospitalization", "change_hospitalization",
+                "view_dutyshift",
+            ],
+        }
+
+        codenames = role_codenames.get(self.role, [])
+        perms = Permission.objects.filter(codename__in=codenames)
+        self.user_permissions.set(perms)
+
 
 # -----------------------------------------------------------------------------
 # 2. Dossier Patient Unique (DPI)
