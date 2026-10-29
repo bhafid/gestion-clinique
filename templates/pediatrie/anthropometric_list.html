@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Anthropométrie - Liste{% endblock %}
+{% block content %}
+<h2>Enregistrements Anthropométriques</h2>
+<a href="{% url 'pediatrie:anthro_create' %}" class="btn btn-primary mb-3">Créer</a>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Patient</th>
+      <th>Date</th>
+      <th>Âge (mois)</th>
+      <th>Poids (kg)</th>
+      <th>Taille (cm)</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for record in records %}
+    <tr>
+      <td>{{ record.patient }}</td>
+      <td>{{ record.measurement_date }}</td>
+      <td>{{ record.age_in_months }}</td>
+      <td>{{ record.weight_kg }}</td>
+      <td>{{ record.height_cm }}</td>
+      <td>
+        <a href="{% url 'pediatrie:anthro_detail' record.pk %}" class="btn btn-sm btn-info">Voir</a>
+        <a href="{% url 'pediatrie:anthro_update' record.pk %}" class="btn btn-sm btn-warning">Modifier</a>
+        <a href="{% url 'pediatrie:anthro_delete' record.pk %}" class="btn btn-sm btn-danger">Supprimer</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6">Aucun enregistrement.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+

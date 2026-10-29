@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}CRO - Détails{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Compte‑Rendu Opératoire</h1>
+<ul class="list-group mb-4">
+  <li class="list-group-item"><strong>Intervention:</strong> {{ report.intervention.procedure_name }}</li>
+  <li class="list-group-item"><strong>Chirurgien rédacteur:</strong> {{ report.author_surgeon.get_full_name }}</li>
+  <li class="list-group-item"><strong>Date de rédaction:</strong> {{ report.report_date|date:"d/m/Y H:i" }}</li>
+  <li class="list-group-item"><strong>Voie opératoire:</strong> {{ report.surgical_approach }}</li>
+  <li class="list-group-item"><strong>Pertes sanguines estimées:</strong> {{ report.estimated_blood_loss_ml }} mL</li>
+</ul>
+<h3>Constatations opératoires</h3>
+<p>{{ report.findings }}</p>
+<h3>Description détaillée du geste</h3>
+<p>{{ report.procedure_description }}</p>
+<h3>Implants / Matériovigilance</h3>
+<p>{{ report.embedded_devices_lot_numbers|default:"Aucun" }}</p>
+<h3>Complications peropératoires</h3>
+<p>{{ report.intraoperative_complications|default:"Aucune" }}</p>
+<h3>Consignes post‑opératoires</h3>
+<p>{{ report.postoperative_instructions }}</p>
+<a href="{% url 'chirurgie:intervention_detail' report.intervention.pk %}" class="btn btn-secondary mt-3">Retour à l'Intervention</a>
+{% endblock %}
+

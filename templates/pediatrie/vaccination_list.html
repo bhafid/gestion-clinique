@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Vaccinations - Liste{% endblock %}
+{% block content %}
+<h2>Vaccinations</h2>
+<a href="{% url 'pediatrie:vaccination_create' %}" class="btn btn-primary mb-3">Créer</a>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Patient</th>
+      <th>Vaccin</th>
+      <th>Date prévue</th>
+      <th>Date d'administration</th>
+      <th>Statut</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for vac in vaccinations %}
+    <tr>
+      <td>{{ vac.patient }}</td>
+      <td>{{ vac.vaccine_name }}</td>
+      <td>{{ vac.recommended_due_date }}</td>
+      <td>{{ vac.administration_date|default:'—' }}</td>
+      <td>{{ vac.get_status_display }}</td>
+      <td>
+        <a href="{% url 'pediatrie:vaccination_detail' vac.pk %}" class="btn btn-sm btn-info">Voir</a>
+        <a href="{% url 'pediatrie:vaccination_update' vac.pk %}" class="btn btn-sm btn-warning">Modifier</a>
+        <a href="{% url 'pediatrie:vaccination_delete' vac.pk %}" class="btn btn-sm btn-danger">Supprimer</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6">Aucun vaccin enregistré.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+

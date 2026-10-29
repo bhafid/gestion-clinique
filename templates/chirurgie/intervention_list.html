@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Interventions Chirurgicales{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Liste des Interventions Chirurgicales</h1>
+
+<form method="get" class="mb-3">
+  <div class="input-group">
+    <input type="text" name="q" class="form-control" placeholder="Rechercher par nom de procédure..." value="{{ request.GET.q }}">
+    <button class="btn btn-primary" type="submit">Rechercher</button>
+  </div>
+</form>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Procédure</th>
+      <th>Patient</th>
+      <th>Salle</th>
+      <th>Chirurgien</th>
+      <th>Début prévu</th>
+      <th>Priorité</th>
+      <th>Statut</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for inter in interventions %}
+    <tr>
+      <td>{{ inter.procedure_name }}</td>
+      <td>{{ inter.patient.last_name }} {{ inter.patient.first_name }}</td>
+      <td>{{ inter.operating_room.code }}</td>
+      <td>{{ inter.lead_surgeon.get_full_name }}</td>
+      <td>{{ inter.scheduled_start|date:"d/m/Y H:i" }}</td>
+      <td>{{ inter.get_priority_display }}</td>
+      <td>{{ inter.get_status_display }}</td>
+      <td>
+        <a href="{% url 'chirurgie:intervention_detail' inter.pk %}" class="btn btn-sm btn-outline-primary">Voir</a>
+        <a href="{% url 'chirurgie:intervention_update' inter.pk %}" class="btn btn-sm btn-outline-warning">Modifier</a>
+        <a href="{% url 'chirurgie:intervention_delete' inter.pk %}" class="btn btn-sm btn-outline-danger">Supprimer</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="8" class="text-center">Aucune intervention trouvée.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="d-flex justify-content-between align-items-center">
+  <a href="{% url 'chirurgie:intervention_create' %}" class="btn btn-success">Nouvelle Intervention</a>
+  {% if is_paginated %}
+    <nav aria-label="Pagination">
+      <ul class="pagination mb-0">
+        {% if page_obj.has_previous %}
+          <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Préc.</a></li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">Préc.</span></li>
+        {% endif %}
+        <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+          <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Suiv.</a></li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">Suiv.</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+  {% endif %}
+</div>
+{% endblock %}
+

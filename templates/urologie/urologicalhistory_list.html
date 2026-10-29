@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Historique Urologique - Liste{% endblock %}
+{% block content %}
+<h2>Historique Urologique</h2>
+<a href="{% url 'urologie:history_create' %}" class="btn btn-primary mb-3">Créer</a>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Patient</th>
+      <th>Lithiase</th>
+      <th>HBP</th>
+      <th>Hématurie</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for h in histories %}
+    <tr>
+      <td>{{ h.patient }}</td>
+      <td>{{ h.has_urolithiasis_history|yesno:"Oui,Non" }}</td>
+      <td>{{ h.has_bph|yesno:"Oui,Non" }}</td>
+      <td>{{ h.macroscopic_hematuria|yesno:"Oui,Non" }}</td>
+      <td>
+        <a href="{% url 'urologie:history_detail' h.pk %}" class="btn btn-sm btn-info">Voir</a>
+        <a href="{% url 'urologie:history_update' h.pk %}" class="btn btn-sm btn-warning">Modifier</a>
+        <a href="{% url 'urologie:history_delete' h.pk %}" class="btn btn-sm btn-danger">Supprimer</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5">Aucun historique.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+

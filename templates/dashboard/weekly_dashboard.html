@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIH - Tableau de Bord Hospitalier & Capacité des Lits</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800 antialiased selection:bg-hospital-500 selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-hospital-700 to-hospital-500 flex items-center justify-center text-white shadow-md shadow-hospital-500/20">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                            Clinique Sidi Yahia 2
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                Conforme HDS &amp; RGPD
+                            </span>
+                        </h1>
+                        <p class="text-xs text-slate-500">Système de Gestion Hospitalière Intégré (HMS / SIH)</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <div class="hidden md:flex flex-col text-right">
+                        <span class="text-xs font-semibold text-slate-700">Semaine du {{ monday|date:"d M" }} au {{ sunday|date:"d M Y" }}</span>
+                        <span class="text-xs text-slate-400">Temps réel - Europe/Paris</span>
+                    </div>
+
+                    <a href="/admin/" class="inline-flex items-center px-4 py-2 border border-slate-300 shadow-xs text-xs font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 hover:text-hospital-600 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-hospital-500 transition-colors">
+                        <svg class="w-4 h-4 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                        Portail Administration &amp; DPI
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+
+        <!-- Controls / Filters bar -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-center gap-4">
+            <!-- Week navigation -->
+            <div class="flex items-center space-x-2">
+                <a href="?week={{ prev_week_str }}{% if selected_dept_id %}&department={{ selected_dept_id }}{% endif %}" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors" title="Semaine précédente">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </a>
+                <a href="?week={{ current_week_str }}{% if selected_dept_id %}&department={{ selected_dept_id }}{% endif %}" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-hospital-50 text-hospital-700 border border-hospital-200 hover:bg-hospital-100 transition-colors">
+                    Cette semaine
+                </a>
+                <a href="?week={{ next_week_str }}{% if selected_dept_id %}&department={{ selected_dept_id }}{% endif %}" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors" title="Semaine suivante">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </a>
+                <span class="text-sm font-medium text-slate-700 pl-2">
+                    {{ monday|date:"d F" }} – {{ sunday|date:"d F Y" }}
+                </span>
+            </div>
+
+            <!-- Department Filter -->
+            <form method="GET" class="flex items-center space-x-2 w-full sm:w-auto">
+                {% if request.GET.week %}
+                <input type="hidden" name="week" value="{{ request.GET.week }}">
+                {% endif %}
+                <label for="department_select" class="text-xs font-medium text-slate-500 whitespace-nowrap">Filtrer par service :</label>
+                <select id="department_select" name="department" onchange="this.form.submit()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-700 focus:ring-2 focus:ring-hospital-500 focus:outline-hidden">
+                    <option value="">Tous les départements</option>
+                    {% for dept in all_departments %}
+                    <option value="{{ dept.id }}" {% if selected_dept_id == dept.id %}selected{% endif %}>
+                        {{ dept.name }} ({{ dept.code }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+
+        <!-- Section 1: KPI Bed Capacity Metrics -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        <svg class="w-5 h-5 text-hospital-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        Capacité Hospitalière &amp; Statut des Lits en Temps Réel
+                    </h2>
+                    <p class="text-xs text-slate-500">Mise à jour dynamique à l'admission et à la sortie effective des patients</p>
+                </div>
+                <div class="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+                    Taux d'occupation global : <span class="{% if occupancy_rate > 90 %}text-rose-600 font-bold{% elif occupancy_rate > 75 %}text-amber-600 font-bold{% else %}text-emerald-600 font-bold{% endif %}">{{ occupancy_rate }}%</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Total Beds -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Lits Actifs</p>
+                        <p class="text-3xl font-extrabold text-slate-900 mt-1">{{ total_beds }}</p>
+                        <p class="text-xs text-slate-500 mt-1">Tous pôles confondus</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Occupied Beds -->
+                <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-xs flex items-center justify-between bg-gradient-to-br from-white to-rose-50/30">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-rose-500">Lits Occupés</p>
+                        <p class="text-3xl font-extrabold text-rose-600 mt-1">{{ occupied_beds }}</p>
+                        <p class="text-xs text-rose-700/80 mt-1">{{ occupancy_rate }}% de capacité mobilisée</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Cleaning Beds -->
+                <div class="bg-white p-5 rounded-2xl border border-amber-100 shadow-xs flex items-center justify-between bg-gradient-to-br from-white to-amber-50/30">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-amber-500">En Nettoyage / Désinfection</p>
+                        <p class="text-3xl font-extrabold text-amber-600 mt-1">{{ cleaning_beds }}</p>
+                        <p class="text-xs text-amber-700/80 mt-1">Bascule automatique après sortie</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Available Beds -->
+                <div class="bg-white p-5 rounded-2xl border border-emerald-100 shadow-xs flex items-center justify-between bg-gradient-to-br from-white to-emerald-50/30">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-emerald-500">Lits Immédiatement Disponibles</p>
+                        <p class="text-3xl font-extrabold text-emerald-600 mt-1">{{ available_beds }}</p>
+                        <p class="text-xs text-emerald-700/80 mt-1">Prêts pour admission</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Detailed Bed Monitoring by Department -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/60">
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Répartition Détaillée des Lits par Service</h3>
+                <div class="flex items-center space-x-3 text-xs">
+                    <span class="inline-flex items-center text-emerald-700"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1.5"></span> Disponible</span>
+                    <span class="inline-flex items-center text-rose-700"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 mr-1.5"></span> Occupé</span>
+                    <span class="inline-flex items-center text-amber-700"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 mr-1.5"></span> Nettoyage</span>
+                    <span class="inline-flex items-center text-slate-500"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 mr-1.5"></span> Maintenance</span>
+                </div>
+            </div>
+
+            <div class="divide-y divide-slate-100">
+                {% for dept_info in departments_data %}
+                <div class="p-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+                        <div>
+                            <span class="text-sm font-bold text-slate-900">{{ dept_info.department.name }}</span>
+                            <span class="ml-2 text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600">{{ dept_info.department.code }}</span>
+                            <span class="text-xs text-slate-400 ml-2">Bât. {{ dept_info.department.building }} - Ét. {{ dept_info.department.floor }}</span>
+                        </div>
+                        <div class="text-xs text-slate-600 flex items-center space-x-3">
+                            <span>Total : <strong>{{ dept_info.total }}</strong></span>
+                            <span class="text-emerald-600 font-medium">Dispo : {{ dept_info.available }}</span>
+                            <span class="text-rose-600 font-medium">Occupés : {{ dept_info.occupied }}</span>
+                            <span class="text-amber-600 font-medium">Nettoyage : {{ dept_info.cleaning }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Beds Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 mt-2">
+                        {% for item in dept_info.beds %}
+                        <div class="p-2.5 rounded-xl border transition-all text-xs
+                            {% if item.bed.status == BedStatus.DISPONIBLE %}
+                                bg-emerald-50/50 border-emerald-200 text-emerald-900 hover:border-emerald-300
+                            {% elif item.bed.status == BedStatus.OCCUPE %}
+                                bg-rose-50/50 border-rose-200 text-rose-900 hover:border-rose-300
+                            {% elif item.bed.status == BedStatus.NETTOYAGE %}
+                                bg-amber-50/50 border-amber-200 text-amber-900 hover:border-amber-300
+                            {% else %}
+                                bg-slate-50 border-slate-200 text-slate-600
+                            {% endif %}
+                        ">
+                            <div class="flex justify-between items-start font-semibold">
+                                <span>Ch. {{ item.bed.room_number }}</span>
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase
+                                    {% if item.bed.status == BedStatus.DISPONIBLE %} bg-emerald-200/60 text-emerald-800
+                                    {% elif item.bed.status == BedStatus.OCCUPE %} bg-rose-200/60 text-rose-800
+                                    {% elif item.bed.status == BedStatus.NETTOYAGE %} bg-amber-200/60 text-amber-800
+                                    {% else %} bg-slate-200 text-slate-700 {% endif %}">
+                                    L{{ item.bed.bed_number }}
+                                </span>
+                            </div>
+
+                            <div class="mt-2 truncate">
+                                {% if item.bed.status == BedStatus.OCCUPE and item.active_hospitalization %}
+                                    <div class="font-medium text-slate-900 truncate" title="{{ item.active_hospitalization.patient.last_name }} {{ item.active_hospitalization.patient.first_name }}">
+                                        {{ item.active_hospitalization.patient.last_name }} {{ item.active_hospitalization.patient.first_name|slice:":1" }}.
+                                    </div>
+                                    <div class="text-[10px] text-slate-500 font-mono">
+                                        IPP: {{ item.active_hospitalization.patient.ipp }}
+                                    </div>
+                                {% elif item.bed.status == BedStatus.NETTOYAGE %}
+                                    <div class="text-[11px] text-amber-700 italic flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                        Désinfection requise
+                                    </div>
+                                {% elif item.bed.status == BedStatus.DISPONIBLE %}
+                                    <div class="text-[11px] text-emerald-700 font-medium">
+                                        ✓ Prêt à l'accueil
+                                    </div>
+                                {% else %}
+                                    <div class="text-[11px] text-slate-500">
+                                        Indisponible
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-xs text-slate-400 italic col-span-full">Aucun lit configuré pour ce service.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-6 text-center text-slate-400 text-xs">
+                    Aucun département trouvé dans la base hospitalière.
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Section 3: Dynamic Weekly Shift Planning Matrix -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50/60">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        <svg class="w-5 h-5 text-hospital-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        Planning des Gardes, Astreintes &amp; Remplacements de la Semaine
+                    </h3>
+                    <p class="text-xs text-slate-500">Matrice de planification par département de soin avec verrouillage strict des permutations</p>
+                </div>
+                <div class="flex items-center space-x-2 text-xs">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-sky-100 text-sky-800 font-medium">Jour</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-medium">Nuit</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">Astreinte</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-medium">24h</span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[900px]">
+                    <thead>
+                        <tr class="bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th class="py-3.5 px-4 w-48 sticky left-0 bg-slate-100/90 z-10 backdrop-blur-xs">Département</th>
+                            {% for day in week_days %}
+                            <th class="py-3.5 px-3 text-center border-l border-slate-200 {% if day.is_today %}bg-hospital-50 text-hospital-800 font-extrabold{% endif %}">
+                                <div>{{ day.name }}</div>
+                                <div class="text-[11px] font-normal {% if day.is_today %}text-hospital-600 font-bold{% else %}text-slate-400{% endif %}">{{ day.formatted }}</div>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        {% for row in planning_matrix %}
+                        <tr class="hover:bg-slate-50/40 transition-colors">
+                            <!-- Department Name Sticky Cell -->
+                            <td class="py-3 px-4 font-semibold text-slate-900 sticky left-0 bg-white z-10 border-r border-slate-100 shadow-xs">
+                                <div class="font-bold text-slate-900">{{ row.department.name }}</div>
+                                <div class="text-[11px] text-slate-400 font-mono">{{ row.department.code }}</div>
+                            </td>
+
+                            <!-- 7 Days cells -->
+                            {% for day_cell in row.days_list %}
+                            <td class="py-2.5 px-2 align-top border-l border-slate-100 {% if day_cell.day.is_today %}bg-hospital-50/20{% endif %} min-w-[130px]">
+                                <div class="space-y-1.5">
+                                    {% for item in day_cell.shifts %}
+                                    <div class="p-2 rounded-lg border shadow-2xs text-[11px] transition-all
+                                        {% if item.shift.shift_type == ShiftType.JOUR %}
+                                            bg-sky-50/80 border-sky-200 text-sky-900
+                                        {% elif item.shift.shift_type == ShiftType.NUIT %}
+                                            bg-indigo-50/80 border-indigo-200 text-indigo-900
+                                        {% elif item.shift.shift_type == ShiftType.ASTREINTE %}
+                                            bg-emerald-50/80 border-emerald-200 text-emerald-900
+                                        {% else %}
+                                            bg-rose-50/80 border-rose-200 text-rose-900
+                                        {% endif %}
+                                    ">
+                                        <div class="flex items-center justify-between font-bold text-[10px] mb-1">
+                                            <span>{{ item.shift.get_shift_type_display|slice:":10" }}</span>
+                                            <span class="font-mono text-slate-500">{{ item.shift.start_time|time:"H:i" }}-{{ item.shift.end_time|time:"H:i" }}</span>
+                                        </div>
+
+                                        <!-- Caregiver titular -->
+                                        {% if item.validated_replacement %}
+                                        <div class="line-through text-slate-400">
+                                            {{ item.shift.staff_member.last_name }}
+                                        </div>
+                                        <div class="font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
+                                            <span class="text-[9px] px-1 py-0.2 bg-emerald-200 text-emerald-800 rounded font-semibold">Remplaçant</span>
+                                            {{ item.validated_replacement.substitute_caregiver.last_name }}
+                                        </div>
+                                        {% else %}
+                                        <div class="font-semibold text-slate-800 truncate" title="{{ item.shift.staff_member.get_full_name }}">
+                                            {{ item.shift.staff_member.last_name }} ({{ item.shift.staff_member.get_role_display|slice:":4" }}.)
+                                        </div>
+                                        {% if item.pending_replacement %}
+                                        <div class="text-[10px] text-amber-700 font-semibold mt-1 bg-amber-100/70 px-1 py-0.5 rounded">
+                                            ⏳ Permutation en attente
+                                        </div>
+                                        {% endif %}
+                                        {% endif %}
+                                    </div>
+                                    {% empty %}
+                                    <div class="h-6 flex items-center justify-center text-slate-300 text-[11px]">-</div>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-slate-400">
+                                Aucun planning de garde programmé pour cette semaine.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-2">
+            <div>
+                SIH Hospitalier Sécurisé &bull; Version 2.4 HDS Compliant &bull; Développé en Python &amp; Django
+            </div>
+            <div class="flex items-center space-x-4">
+                <span>Traçabilité d'accès aux DPI active</span>
+                <span>&bull;</span>
+                <span class="text-hospital-600 font-medium">Session sécurisée</span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

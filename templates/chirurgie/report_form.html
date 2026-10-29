@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ view.object|default:'Nouveau' }} CRO{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{% if view.object %}Modifier le Compte‑Rendu Opératoire{% else %}Créer le Compte‑Rendu Opératoire{% endif %}</h1>
+
+<form method="post" class="needs-validation" novalidate>
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <div class="row g-3">
+    {% for field in form %}
+      <div class="col-md-6">
+        <label class="form-label">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+  </div>
+  <button type="submit" class="btn btn-primary mt-3">Enregistrer</button>
+  <a href="{% url 'chirurgie:intervention_detail' view.kwargs.intervention_pk %}" class="btn btn-secondary mt-3 ms-2">Annuler</a>
+</form>
+{% endblock %}
+

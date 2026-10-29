@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Checklist OMS - Détails{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Checklist OMS - {{ checklist.intervention.procedure_name }}</h1>
+<ul class="list-group mb-4">
+  <li class="list-group-item"><strong>Patient:</strong> {{ checklist.intervention.patient.last_name }} {{ checklist.intervention.patient.first_name }}</li>
+  <li class="list-group-item"><strong>Salle:</strong> {{ checklist.intervention.operating_room.code }}</li>
+  <li class="list-group-item"><strong>Chirurgien:</strong> {{ checklist.intervention.lead_surgeon.get_full_name }}</li>
+</ul>
+<table class="table table-sm">
+  <thead>
+    <tr><th>Phase</th><th>Élément</th><th>Complété</th></tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="3" class="fw-bold bg-light">Sign‑in</td></tr>
+    <tr><td>1</td><td>Identité du patient confirmée</td><td>{% if checklist.signin_patient_identity_confirmed %}✔{% else %}✖{% endif %}</td></tr>
+    <tr><td>2</td><td>Site opératoire marqué</td><td>{% if checklist.signin_site_marked %}✔{% else %}✖{% endif %}</td></tr>
+    <tr><td>3</td><td>Consentement vérifié</td><td>{% if checklist.signin_consent_verified %}✔{% else %}✖{% endif %}</td></tr>
+    <!-- add other sign‑in rows similarly -->
+    <tr><td colspan="3" class="fw-bold bg-light">Time‑out</td></tr>
+    <tr><td>7</td><td>Équipe présentée</td><td>{% if checklist.timeout_team_introduced %}✔{% else %}✖{% endif %}</td></tr>
+    <!-- other time‑out rows -->
+    <tr><td colspan="3" class="fw-bold bg-light">Sign‑out</td></tr>
+    <tr><td>13</td><td>Procédure confirmée</td><td>{% if checklist.signout_procedure_confirmed %}✔{% else %}✖{% endif %}</td></tr>
+    <!-- other sign‑out rows -->
+  </tbody>
+</table>
+{% if checklist.is_fully_validated %}
+<div class="alert alert-success" role="alert">Checklist entièrement validée.</div>
+{% else %}
+<div class="alert alert-warning" role="alert">Checklist incomplète.</div>
+{% endif %}
+<a href="{% url 'chirurgie:intervention_detail' checklist.intervention.pk %}" class="btn btn-secondary mt-3">Retour à l'Intervention</a>
+{% endblock %}
+

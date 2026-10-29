@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Anthropométrie - Détail{% endblock %}
+{% block content %}
+<h2>Détails de l'enregistrement anthropométrique</h2>
+<table class="table table-bordered">
+  <tr><th>Patient</th><td>{{ record.patient }}</td></tr>
+  <tr><th>Date de mesure</th><td>{{ record.measurement_date }}</td></tr>
+  <tr><th>Âge (mois)</th><td>{{ record.age_in_months }}</td></tr>
+  <tr><th>Poids (kg)</th><td>{{ record.weight_kg }}</td></tr>
+  <tr><th>Taille (cm)</th><td>{{ record.height_cm }}</td></tr>
+  <tr><th>Périmètre crânien (cm)</th><td>{{ record.cranial_perimeter_cm }}</td></tr>
+  <tr><th>IMC</th><td>{{ record.body_mass_index }}</td></tr>
+  <tr><th>Observations cliniques</th><td>{{ record.clinical_observations }}</td></tr>
+</table>
+<a href="{% url 'pediatrie:anthro_update' record.pk %}" class="btn btn-warning">Modifier</a>
+<a href="{% url 'pediatrie:anthro_delete' record.pk %}" class="btn btn-danger">Supprimer</a>
+<a href="{% url 'pediatrie:anthro_list' %}" class="btn btn-secondary">Retour à la liste</a>
+{% endblock %}
+

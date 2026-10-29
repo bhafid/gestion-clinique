@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Détails de l'Intervention{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Intervention: {{ intervention.procedure_name }}</h1>
+<ul class="list-group mb-4">
+  <li class="list-group-item"><strong>Patient:</strong> {{ intervention.patient.last_name }} {{ intervention.patient.first_name }}</li>
+  <li class="list-group-item"><strong>Salle:</strong> {{ intervention.operating_room.code }} - {{ intervention.operating_room.name }}</li>
+  <li class="list-group-item"><strong>Chirurgien:</strong> {{ intervention.lead_surgeon.get_full_name }}</li>
+  <li class="list-group-item"><strong>Anesthésiste:</strong> {{ intervention.anesthesiologist.get_full_name|default:'N/A' }}</li>
+  <li class="list-group-item"><strong>Début prévu:</strong> {{ intervention.scheduled_start|date:"d/m/Y H:i" }}</li>
+  <li class="list-group-item"><strong>Fin prévue:</strong> {{ intervention.scheduled_end|date:"d/m/Y H:i" }}</li>
+  <li class="list-group-item"><strong>Priorité:</strong> {{ intervention.get_priority_display }}</li>
+  <li class="list-group-item"><strong>Statut:</strong> {{ intervention.get_status_display }}</li>
+  <li class="list-group-item"><strong>Indication:</strong> {{ intervention.surgical_indication }}</li>
+</ul>
+
+<div class="mb-4">
+  {% if checklist %}
+    <a href="{% url 'chirurgie:checklist_detail' checklist.pk %}" class="btn btn-outline-primary">Voir la Checklist OMS</a>
+  {% else %}
+    <a href="{% url 'chirurgie:checklist_create' intervention.pk %}" class="btn btn-success">Créer la Checklist OMS</a>
+  {% endif %}
+  {% if report %}
+    <a href="{% url 'chirurgie:report_detail' report.pk %}" class="btn btn-outline-primary ms-2">Voir le CRO</a>
+  {% elif intervention.status == 'TERMINEE' %}
+    <a href="{% url 'chirurgie:report_create' intervention.pk %}" class="btn btn-success ms-2">Créer le CRO</a>
+  {% endif %}
+</div>
+
+<a href="{% url 'chirurgie:intervention_update' intervention.pk %}" class="btn btn-warning">Modifier</a>
+<a href="{% url 'chirurgie:intervention_delete' intervention.pk %}" class="btn btn-danger ms-2">Supprimer</a>
+<a href="{% url 'chirurgie:intervention_list' %}" class="btn btn-secondary ms-2">Retour à la liste</a>
+{% endblock %}
+
