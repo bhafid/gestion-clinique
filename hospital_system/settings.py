@@ -10,6 +10,20 @@ import sys
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Chargement automatique du fichier .env s'il est présent
+env_path = BASE_DIR / ".env"
+if env_path.exists():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(env_path)
+    except ImportError:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, val = line.partition("=")
+                    os.environ.setdefault(key.strip(), val.strip().strip("'\""))
+
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv(
     "DJANGO_SECRET_KEY",
@@ -18,7 +32,17 @@ SECRET_KEY = os.getenv(
 
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",")
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",")
+    if h.strip()
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if o.strip()
+]
 
 # Application definition
 INSTALLED_APPS = [
@@ -135,7 +159,10 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
-if not DEBUG:
+ENABLE_HTTPS = os.getenv("DJANGO_ENABLE_HTTPS", "False").lower() in ("true", "1", "yes")
+
+if not DEBUG and ENABLE_HTTPS:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
