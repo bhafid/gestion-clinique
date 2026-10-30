@@ -2,7 +2,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 
-from apps.core.models import UserRole
+from apps.core.models import AuditActionType, SecurityAuditLog, UserRole
 from .models import AnthropometricRecord, VaccinationRecord
 
 
@@ -13,16 +13,24 @@ def user_has_pediatrie_role(user):
 
 
 class RoleRequiredMixin(UserPassesTestMixin):
-    """Mixin restricting access to pediatric roles (MEDECIN, INFIRMIER)."""
+    """Mixin restricting access to pediatric roles (MEDECIN, INFIRMIER, SAGE_FEMME)."""
     def test_func(self):
         return user_has_pediatrie_role(self.request.user)
 
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
+        if self.request.user.is_authenticated:
+            SecurityAuditLog.log_action(
+                user=self.request.user,
+                action_type=AuditActionType.ACCESS_DENIED,
+                resource_name="Pédiatrie",
+                details=f"Tentative d'accès refusée (Secret Médical) sur {self.request.path}",
+                ip_address=self.request.META.get("REMOTE_ADDR"),
+            )
         raise PermissionDenied
 
 # AnthropometricRecord Views
-class AnthropometricRecordListView(LoginRequiredMixin, ListView):
+class AnthropometricRecordListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
     model = AnthropometricRecord
     template_name = "pediatrie/anthropometric_list.html"
     context_object_name = "records"
@@ -53,7 +61,7 @@ class AnthropometricRecordCreateView(LoginRequiredMixin, RoleRequiredMixin, Crea
     def get_success_url(self):
         return reverse_lazy("pediatrie:anthro_detail", kwargs={"pk": self.object.pk})
 
-class AnthropometricRecordDetailView(LoginRequiredMixin, DetailView):
+class AnthropometricRecordDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     model = AnthropometricRecord
     template_name = "pediatrie/anthropometric_detail.html"
     context_object_name = "record"
@@ -79,7 +87,7 @@ class AnthropometricRecordDeleteView(LoginRequiredMixin, RoleRequiredMixin, Dele
     success_url = reverse_lazy("pediatrie:anthro_list")
 
 # VaccinationRecord Views
-class VaccinationRecordListView(LoginRequiredMixin, ListView):
+class VaccinationRecordListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
     model = VaccinationRecord
     template_name = "pediatrie/vaccination_list.html"
     context_object_name = "vaccinations"
@@ -111,7 +119,7 @@ class VaccinationRecordCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateV
     def get_success_url(self):
         return reverse_lazy("pediatrie:vaccination_detail", kwargs={"pk": self.object.pk})
 
-class VaccinationRecordDetailView(LoginRequiredMixin, DetailView):
+class VaccinationRecordDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     model = VaccinationRecord
     template_name = "pediatrie/vaccination_detail.html"
     context_object_name = "vaccination"

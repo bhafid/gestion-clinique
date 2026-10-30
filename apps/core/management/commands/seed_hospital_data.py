@@ -27,6 +27,8 @@ from apps.core.models import (
     Hospitalization,
     HospitalizationStatus,
     Patient,
+    PatientStatusConfig,
+    PatientStatusHistory,
     ShiftReplacement,
     ShiftReplacementStatus,
     ShiftType,
@@ -104,11 +106,12 @@ class Command(BaseCommand):
             ("dr_yves_uro", "Yves", "Carpentier", UserRole.CHIRURGIEN, "URO", "RPPS-4040401"),
             ("dr_anne_uro", "Anne", "Lambert", UserRole.MEDECIN, "URO", "RPPS-4040402"),
             ("sec_nadia", "Nadia", "Benali", UserRole.SECRETAIRE, "URG", "ADELI-5050501"),
+            ("adm_karim", "Karim", "Mansouri", UserRole.GESTIONNAIRE_ADMISSION, "URG", "ADELI-6060601"),
         ]
 
         users = {}
         for uname, fn, ln, role, dcode, rpps in users_def:
-            u, created = CustomUser.objects.get_or_create(
+            u, _ = CustomUser.objects.update_or_create(
                 username=uname,
                 defaults={
                     "first_name": fn,
@@ -117,13 +120,19 @@ class Command(BaseCommand):
                     "department": departments[dcode],
                     "license_number": rpps,
                     "email": f"{uname}@chu-hopital.fr",
+                    "is_active": True,
+                    "is_staff": True,
                 },
             )
-            if created:
-                u.set_password("HospitalPass123!")
+            u.set_password("HospitalPass123!")
             u.save()
             u.sync_role_permissions()
             users[uname] = u
+
+        # Synchroniser également tous les autres utilisateurs existants dans la base
+        for existing_user in CustomUser.objects.all():
+            existing_user.save()
+            existing_user.sync_role_permissions()
 
         # 3. Lits par service
         for dept_code, dept in departments.items():
@@ -136,27 +145,59 @@ class Command(BaseCommand):
                         defaults={"status": BedStatus.DISPONIBLE},
                     )
 
-        # 4. Patients (DPI)
+        # 4. Paramétrage des 7 Statuts Patients par défaut & Patients (DPI)
+        status_map = PatientStatusConfig.ensure_default_statuses()
+
         patients_def = [
-            ("185057511504248", "Dubois", "Mathieu", date(1985, 5, 12), "M", BloodGroup.A_POS, "Pénicilline"),
-            ("292037511504291", "Martin", "Aurélie", date(1992, 3, 14), "F", BloodGroup.O_POS, "Iode"),
-            ("160047511504229", "Bernard", "Christian", date(1960, 4, 20), "M", BloodGroup.B_POS, "Aucune"),
-            ("125067511504261", "Petit", "Tom", date(2025, 6, 1), "M", BloodGroup.A_NEG, "Aucune"),
+            ("185057511504248", "Dubois", "Mathieu", "Dubois", date(1985, 5, 12), "M", BloodGroup.A_POS, "Pénicilline", "REVEIL", "12 Rue Didouche Mourad", "Sidi Yahia", "Alger", "CI-10948271", "Claire Dubois", "Épouse"),
+            ("292037511504291", "Martin", "Aurélie", "Laurent", date(1992, 3, 14), "F", BloodGroup.O_POS, "Iode", "SERVICE", "45 Boulevard Krim Belkacem", "Hydra", "Alger", "CI-20849103", "Thomas Martin", "Conjoint"),
+            ("160047511504229", "Bernard", "Christian", "Bernard", date(1960, 4, 20), "M", BloodGroup.B_POS, "Aucune", "SORTIE", "8 Chemin Mackley", "Ben Aknoun", "Alger", "CI-30491822", "Nadia Bernard", "Fille majeure"),
+            ("125067511504261", "Petit", "Tom", "Petit", date(2025, 6, 1), "M", BloodGroup.A_NEG, "Aucune", "ADMISSION", "22 Lotissement Sidi Yahia", "Bir Mourad Raïs", "Alger", "CI-40192834", "Sophie Petit", "Mère / Représentante légale"),
         ]
         patients = []
-        for nir, ln, fn, bdate, gender, bg, allergies in patients_def:
-            p, _ = Patient.objects.get_or_create(
+        for nir, ln, fn, mname, bdate, gender, bg, allergies, target_st_code, addr, city, state_prov, cid, tp_name, tp_rel in patients_def:
+            p, _ = Patient.objects.update_or_create(
                 nir=nir,
                 defaults={
                     "last_name": ln,
                     "first_name": fn,
+                    "maiden_name": mname,
                     "birth_date": bdate,
                     "gender": gender,
                     "blood_group": bg,
                     "known_allergies": allergies,
                     "phone": "0612345678",
+                    "address": addr,
+                    "city": city,
+                    "state_province": state_prov,
+                    "national_id_number": cid,
+                    "trusted_person_name": tp_name,
+                    "trusted_person_relation": tp_rel,
                 },
             )
+            if not p.status_history.exists():
+                PatientStatusHistory.objects.create(
+                    patient=p,
+                    old_status=None,
+                    new_status=status_map["ADMISSION"],
+                    changed_by=users["sec_nadia"],
+                    comment="Admission administrative et création du bracelet patient.",
+                    changed_at=timezone.now() - timedelta(hours=6),
+                )
+                if target_st_code == "REVEIL":
+                    p.change_status(status_map["SERVICE"], users["inf_paul_chir"], "Installation en Chambre 101 (Chirurgie).")
+                    p.change_status(status_map["BLOC"], users["dr_alain_chir"], "Entrée en Salle BLOC-1 (Cholécystectomie).")
+                    p.change_status(status_map["REVEIL"], users["dr_alain_chir"], "Transfert SSPI après intervention sans incident.")
+                elif target_st_code == "SERVICE":
+                    p.change_status(status_map["SERVICE"], users["sf_elodie_mat"], "Installation en Chambre 101 (Maternité).")
+                elif target_st_code == "SORTIE":
+                    p.change_status(status_map["SERVICE"], users["dr_yves_uro"], "Prise en charge service Urologie.")
+                    p.change_status(status_map["SORTIE"], users["dr_yves_uro"], "Sortie médicale validée avec ordonnance.")
+            elif not p.current_status_id:
+                p.current_status = status_map[target_st_code]
+                p.status_updated_at = timezone.now()
+                p.save(update_fields=["current_status", "status_updated_at"])
+
             patients.append(p)
 
         # 5. Hospitalisations & Statut des Lits
@@ -166,9 +207,10 @@ class Command(BaseCommand):
             hosp_active = Hospitalization(
                 patient=patients[0],
                 bed=bed_chir_1,
+                practitioner=users["dr_alain_chir"],
                 admission_date=timezone.now() - timedelta(days=1),
                 expected_discharge_date=timezone.now() + timedelta(days=3),
-                admission_reason="Surveillance postopératoire cholécystectomie",
+                admission_reason="Chirurgie programmée (Cholécystectomie)",
                 entry_diagnosis="Lithiase biliaire compliquée",
             )
             hosp_active.full_clean()
@@ -180,10 +222,11 @@ class Command(BaseCommand):
             hosp_past = Hospitalization(
                 patient=patients[2],
                 bed=bed_chir_2,
+                practitioner=users["dr_yves_uro"],
                 admission_date=timezone.now() - timedelta(days=4),
                 expected_discharge_date=timezone.now() - timedelta(days=1),
                 actual_discharge_date=timezone.now() - timedelta(hours=3),
-                admission_reason="Bilan rénal",
+                admission_reason="Hospitalisation programmée Urologie",
                 entry_diagnosis="Colique néphrétique résolutive",
             )
             hosp_past.full_clean()
@@ -195,13 +238,19 @@ class Command(BaseCommand):
             hosp_mat = Hospitalization(
                 patient=patients[1],
                 bed=bed_mat_1,
+                practitioner=users["dr_claire_mat"],
                 admission_date=timezone.now() - timedelta(hours=18),
                 expected_discharge_date=timezone.now() + timedelta(days=2),
-                admission_reason="Suite de couches accouchement physiologique",
+                admission_reason="Séjour Maternité programmé",
                 entry_diagnosis="Suivi post-partum",
             )
             hosp_mat.full_clean()
             hosp_mat.save()
+
+        # Mise à jour des médecins référents sur les séjours existants
+        Hospitalization.objects.filter(patient=patients[0], practitioner__isnull=True).update(practitioner=users["dr_alain_chir"])
+        Hospitalization.objects.filter(patient=patients[1], practitioner__isnull=True).update(practitioner=users["dr_claire_mat"])
+        Hospitalization.objects.filter(patient=patients[2], practitioner__isnull=True).update(practitioner=users["dr_yves_uro"])
 
         # 6. Planning hebdomadaire des gardes
         today = timezone.now().date()

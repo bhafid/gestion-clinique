@@ -7,7 +7,7 @@ et gestion des gardes médicales avec verrouillage strict des permutations.
 
 from datetime import date, datetime, timedelta
 import re
-from typing import Optional
+from typing import Dict, Optional
 
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
@@ -69,6 +69,10 @@ class UserRole(models.TextChoices):
     INFIRMIER = "INFIRMIER", "Infirmier(e) D.E."
     SAGE_FEMME = "SAGE_FEMME", "Sage-Femme"
     SECRETAIRE = "SECRETAIRE", "Secrétaire Médicale"
+    GESTIONNAIRE_ADMISSION = (
+        "GESTIONNAIRE_ADMISSION",
+        "Gestionnaire des Admissions et Hospitalisations",
+    )
 
 
 class CustomUser(AbstractUser):
@@ -78,7 +82,7 @@ class CustomUser(AbstractUser):
     """
 
     role = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=UserRole.choices,
         default=UserRole.MEDECIN,
         verbose_name="Rôle hospitalier",
@@ -144,6 +148,7 @@ class CustomUser(AbstractUser):
             UserRole.CHIRURGIEN: [
                 # Core
                 "view_department", "view_patient", "add_patient", "change_patient",
+                "view_patientstatusconfig", "view_patientstatushistory", "add_patientstatushistory",
                 "view_appointment", "add_appointment", "change_appointment",
                 "view_bed", "view_hospitalization", "add_hospitalization", "change_hospitalization",
                 "view_dutyshift", "view_shiftreplacement", "add_shiftreplacement",
@@ -159,6 +164,7 @@ class CustomUser(AbstractUser):
             UserRole.MEDECIN: [
                 # Core
                 "view_department", "view_patient", "add_patient", "change_patient",
+                "view_patientstatusconfig", "view_patientstatushistory", "add_patientstatushistory",
                 "view_appointment", "add_appointment", "change_appointment",
                 "view_bed", "view_hospitalization", "add_hospitalization", "change_hospitalization",
                 "view_dutyshift", "view_shiftreplacement", "add_shiftreplacement",
@@ -177,6 +183,7 @@ class CustomUser(AbstractUser):
             UserRole.SAGE_FEMME: [
                 # Core
                 "view_department", "view_patient", "add_patient", "change_patient",
+                "view_patientstatusconfig", "view_patientstatushistory", "add_patientstatushistory",
                 "view_appointment", "add_appointment", "change_appointment",
                 "view_bed", "change_bed", "view_hospitalization", "add_hospitalization", "change_hospitalization",
                 "view_dutyshift", "view_shiftreplacement", "add_shiftreplacement",
@@ -190,7 +197,8 @@ class CustomUser(AbstractUser):
             ],
             UserRole.INFIRMIER: [
                 # Core (Soins, Lits & Gardes)
-                "view_department", "view_patient", "view_appointment",
+                "view_department", "view_patient", "change_patient", "view_appointment",
+                "view_patientstatusconfig", "view_patientstatushistory", "add_patientstatushistory",
                 "view_bed", "change_bed", "view_hospitalization", "change_hospitalization",
                 "view_dutyshift", "view_shiftreplacement", "add_shiftreplacement",
                 # Bloc & Pédiatrie
@@ -201,9 +209,18 @@ class CustomUser(AbstractUser):
             UserRole.SECRETAIRE: [
                 # Accueil, DPI, Rendez-vous & Admissions
                 "view_department", "view_patient", "add_patient", "change_patient",
+                "view_patientstatusconfig", "view_patientstatushistory", "add_patientstatushistory",
                 "view_appointment", "add_appointment", "change_appointment", "delete_appointment",
                 "view_bed", "view_hospitalization", "add_hospitalization", "change_hospitalization",
                 "view_dutyshift",
+            ],
+            UserRole.GESTIONNAIRE_ADMISSION: [
+                # A. Gestion des Patients (Identitovigilance) : CRU uniquement (Suppression interdite)
+                "view_patient", "add_patient", "change_patient",
+                "view_patientstatusconfig", "view_patientstatushistory", "add_patientstatushistory",
+                # B. Mouvements et Hospitalisations : CRU sur les séjours, Lecture seule sur l'occupation des lits
+                "view_hospitalization", "add_hospitalization", "change_hospitalization",
+                "view_department", "view_bed",
             ],
         }
 
@@ -259,10 +276,189 @@ class BloodGroup(models.TextChoices):
     INDETERMINE = "IND", "Indéterminé"
 
 
+class PatientStatusColor(models.TextChoices):
+    """Palette de couleurs normée pour les badges de statut patient."""
+
+    SKY = "sky", "Bleu Ciel (Admission / Accueil)"
+    INDIGO = "indigo", "Indigo (Service / Unité de soin)"
+    ROSE = "rose", "Rouge Corail (Bloc Opératoire / Urgence)"
+    AMBER = "amber", "Ambre / Orange (Réveil / Surveillance SSPI)"
+    EMERALD = "emerald", "Vert Émeraude (Sortie / Validé)"
+    PURPLE = "purple", "Violet (Reporté / En attente)"
+    SLATE = "slate", "Gris Ardoise (Annulé / Clôturé)"
+
+
+DEFAULT_PATIENT_STATUSES = [
+    {
+        "code": "ADMISSION",
+        "label": "Admission",
+        "description": "Patient enregistré à l'accueil / en préparation pré-hospitalière",
+        "color_theme": PatientStatusColor.SKY,
+        "hex_color": "#0284C7",
+        "display_order": 1,
+        "is_terminal": False,
+        "is_system_default": True,
+    },
+    {
+        "code": "SERVICE",
+        "label": "Service",
+        "description": "Patient installé en chambre dans son unité d'hospitalisation",
+        "color_theme": PatientStatusColor.INDIGO,
+        "hex_color": "#4F46E5",
+        "display_order": 2,
+        "is_terminal": False,
+        "is_system_default": True,
+    },
+    {
+        "code": "BLOC",
+        "label": "Bloc",
+        "description": "Patient actuellement en salle d'intervention au bloc opératoire",
+        "color_theme": PatientStatusColor.ROSE,
+        "hex_color": "#E11D48",
+        "display_order": 3,
+        "is_terminal": False,
+        "is_system_default": True,
+    },
+    {
+        "code": "REVEIL",
+        "label": "Réveil",
+        "description": "Patient en Salle de Surveillance Post-Interventionnelle (SSPI)",
+        "color_theme": PatientStatusColor.AMBER,
+        "hex_color": "#D97706",
+        "display_order": 4,
+        "is_terminal": False,
+        "is_system_default": True,
+    },
+    {
+        "code": "REPORTE",
+        "label": "Reporté",
+        "description": "Acte ou prise en charge reportée à une date ultérieure",
+        "color_theme": PatientStatusColor.PURPLE,
+        "hex_color": "#9333EA",
+        "display_order": 5,
+        "is_terminal": False,
+        "is_system_default": True,
+    },
+    {
+        "code": "SORTIE",
+        "label": "Sortie",
+        "description": "Patient ayant quitté l'établissement après validation médicale",
+        "color_theme": PatientStatusColor.EMERALD,
+        "hex_color": "#059669",
+        "display_order": 6,
+        "is_terminal": True,
+        "is_system_default": True,
+    },
+    {
+        "code": "ANNULE",
+        "label": "Annulé",
+        "description": "Admission ou venue annulée avant prise en charge",
+        "color_theme": PatientStatusColor.SLATE,
+        "hex_color": "#64748B",
+        "display_order": 7,
+        "is_terminal": True,
+        "is_system_default": True,
+    },
+]
+
+
+class PatientStatusConfig(AuditableModel):
+    """
+    Table de paramétrage général des statuts de parcours patient après admission.
+    Permet aux administrateurs d'ajouter, modifier ou désactiver dynamiquement des statuts.
+    """
+
+    code = models.CharField(
+        max_length=40,
+        unique=True,
+        verbose_name="Code technique",
+        help_text="Identifiant unique en majuscules (ex: ADMISSION, BLOC, REVEIL)",
+    )
+    label = models.CharField(max_length=80, verbose_name="Libellé du statut")
+    description = models.CharField(max_length=255, blank=True, verbose_name="Description fonctionnelle")
+    color_theme = models.CharField(
+        max_length=20,
+        choices=PatientStatusColor.choices,
+        default=PatientStatusColor.SKY,
+        verbose_name="Thème de couleur (Badge UI)",
+    )
+    hex_color = models.CharField(
+        max_length=7,
+        default="#0284C7",
+        verbose_name="Couleur HEX (#RRGGBB)",
+    )
+    display_order = models.PositiveIntegerField(default=10, verbose_name="Ordre d'affichage")
+    is_terminal = models.BooleanField(
+        default=False,
+        verbose_name="Statut de fin de parcours (Sortie / Annulé)",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Statut actif",
+        help_text="Désactivez pour masquer ce statut sans perdre l'historique des patients.",
+    )
+    is_system_default = models.BooleanField(
+        default=False,
+        verbose_name="Statut initial par défaut du système",
+    )
+
+    class Meta:
+        verbose_name = "Paramétrage Statut Patient"
+        verbose_name_plural = "Paramétrage des Statuts Patients"
+        ordering = ["display_order", "label"]
+
+    def __str__(self) -> str:
+        return f"{self.label}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.code:
+            self.code = self.code.strip().upper().replace(" ", "_")
+
+    @property
+    def badge_classes(self) -> str:
+        mapping = {
+            PatientStatusColor.SKY: "bg-sky-50 text-sky-700 border-sky-200",
+            PatientStatusColor.INDIGO: "bg-indigo-50 text-indigo-700 border-indigo-200",
+            PatientStatusColor.ROSE: "bg-rose-50 text-rose-700 border-rose-200",
+            PatientStatusColor.AMBER: "bg-amber-50 text-amber-800 border-amber-200",
+            PatientStatusColor.EMERALD: "bg-emerald-50 text-emerald-700 border-emerald-200",
+            PatientStatusColor.PURPLE: "bg-purple-50 text-purple-700 border-purple-200",
+            PatientStatusColor.SLATE: "bg-slate-100 text-slate-600 border-slate-300",
+        }
+        return mapping.get(self.color_theme, "bg-slate-100 text-slate-700 border-slate-300")
+
+    @property
+    def dot_classes(self) -> str:
+        mapping = {
+            PatientStatusColor.SKY: "bg-sky-500",
+            PatientStatusColor.INDIGO: "bg-indigo-500",
+            PatientStatusColor.ROSE: "bg-rose-500 animate-pulse",
+            PatientStatusColor.AMBER: "bg-amber-500 animate-pulse",
+            PatientStatusColor.EMERALD: "bg-emerald-500",
+            PatientStatusColor.PURPLE: "bg-purple-500",
+            PatientStatusColor.SLATE: "bg-slate-400",
+        }
+        return mapping.get(self.color_theme, "bg-slate-400")
+
+    @classmethod
+    def ensure_default_statuses(cls) -> Dict[str, "PatientStatusConfig"]:
+        """Garantit l'existence des 7 statuts initiaux réglementaires dans la base."""
+        result = {}
+        for item in DEFAULT_PATIENT_STATUSES:
+            obj, _ = cls.objects.get_or_create(
+                code=item["code"],
+                defaults=item,
+            )
+            result[item["code"]] = obj
+        return result
+
+
 class Patient(AuditableModel):
     """
     Dossier Patient Unique (DPI) partagé entre l'ensemble des départements et spécialités.
     Identifiant Permanent du Patient (IPP) unique et garanti immuable.
+    Intègre le suivi en temps réel du statut actuel du patient après son admission.
     """
 
     ipp = models.CharField(
@@ -294,13 +490,36 @@ class Patient(AuditableModel):
         default=BloodGroup.INDETERMINE,
         verbose_name="Groupe sanguin & Rhésus",
     )
+    current_status = models.ForeignKey(
+        PatientStatusConfig,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="patients",
+        verbose_name="Statut actuel du patient",
+    )
+    status_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Dernier changement de statut",
+    )
     known_allergies = models.TextField(blank=True, verbose_name="Allergies connues")
     major_medical_history = models.TextField(blank=True, verbose_name="Antécédents médico-chirurgicaux majeurs")
     ongoing_treatments = models.TextField(blank=True, verbose_name="Traitements en cours")
-    trusted_person_name = models.CharField(max_length=120, blank=True, verbose_name="Personne de confiance")
+    trusted_person_name = models.CharField(max_length=120, blank=True, verbose_name="Personne de confiance / Représentant légal")
+    trusted_person_relation = models.CharField(
+        max_length=80,
+        blank=True,
+        default="Représentant légal / Tuteur",
+        verbose_name="Qualité du représentant légal",
+    )
     trusted_person_phone = models.CharField(max_length=25, blank=True, verbose_name="Téléphone de la personne de confiance")
     phone = models.CharField(max_length=25, blank=True, verbose_name="Téléphone patient")
     email = models.EmailField(blank=True, verbose_name="Adresse courriel")
+    address = models.CharField(max_length=255, blank=True, verbose_name="Adresse postale")
+    city = models.CharField(max_length=100, blank=True, verbose_name="Ville / Commune")
+    state_province = models.CharField(max_length=100, blank=True, verbose_name="Wilaya / Province / État")
+    national_id_number = models.CharField(max_length=50, blank=True, verbose_name="N° PC ou Carte d'Identité (CI)")
 
     class Meta:
         verbose_name = "Dossier Patient Unique (DPI)"
@@ -311,7 +530,10 @@ class Patient(AuditableModel):
         return f"{self.last_name.upper()} {self.first_name} (IPP: {self.ipp})"
 
     def save(self, *args, **kwargs) -> None:
-        """Génération automatique et sécurisée de l'IPP hospitalier s'il n'existe pas encore."""
+        """
+        Génération automatique de l'IPP hospitalier et affectation du statut initial 'Admission'
+        si aucun statut actuel n'est encore défini.
+        """
         if not self.ipp:
             current_year = date.today().year
             last_patient = (
@@ -327,7 +549,95 @@ class Patient(AuditableModel):
             else:
                 seq_num = 1
             self.ipp = f"IPP-{current_year}-{seq_num:06d}"
+
+        if not self.current_status_id:
+            admission_status = PatientStatusConfig.objects.filter(code="ADMISSION", is_active=True).first()
+            if admission_status:
+                self.current_status = admission_status
+                if not self.status_updated_at:
+                    self.status_updated_at = timezone.now()
+
         super().save(*args, **kwargs)
+
+    @transaction.atomic
+    def change_status(
+        self,
+        new_status: PatientStatusConfig,
+        changed_by: CustomUser,
+        comment: str = "",
+    ) -> "PatientStatusHistory":
+        """
+        Met à jour en temps réel le statut actuel du patient et enregistre l'historique
+        complet (Date/Heure, Ancien statut, Nouveau statut, Utilisateur) de manière atomique.
+        """
+        if not new_status.is_active:
+            raise ValidationError("Impossible d'affecter un statut désactivé.")
+
+        old_status = self.current_status
+        now = timezone.now()
+        self.current_status = new_status
+        self.status_updated_at = now
+        self.save(update_fields=["current_status", "status_updated_at", "updated_at"])
+
+        return PatientStatusHistory.objects.create(
+            patient=self,
+            old_status=old_status,
+            new_status=new_status,
+            changed_by=changed_by,
+            comment=comment,
+        )
+
+
+class PatientStatusHistory(models.Model):
+    """
+    Journal d'audit immuable (HDS / RGPD) conservant l'historique complet
+    de tous les changements de statut d'un patient après son admission.
+    """
+
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name="status_history",
+        verbose_name="Patient (DPI)",
+    )
+    old_status = models.ForeignKey(
+        PatientStatusConfig,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="transitions_from",
+        verbose_name="Ancien statut",
+    )
+    new_status = models.ForeignKey(
+        PatientStatusConfig,
+        on_delete=models.PROTECT,
+        related_name="transitions_to",
+        verbose_name="Nouveau statut",
+    )
+    changed_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name="patient_status_changes",
+        verbose_name="Modifié par (Utilisateur)",
+    )
+    comment = models.TextField(blank=True, verbose_name="Observation / Motif")
+    changed_at = models.DateTimeField(
+        default=timezone.now,
+        db_index=True,
+        verbose_name="Date et heure du changement",
+    )
+
+    class Meta:
+        verbose_name = "Historique de Statut Patient"
+        verbose_name_plural = "Historiques des Statuts Patients"
+        ordering = ["-changed_at", "-id"]
+
+    def __str__(self) -> str:
+        old_label = self.old_status.label if self.old_status else "Initial"
+        return (
+            f"{self.patient.last_name} : {old_label} -> {self.new_status.label} "
+            f"({self.changed_at.strftime('%d/%m/%Y %H:%M')} par {self.changed_by.username})"
+        )
 
 
 # -----------------------------------------------------------------------------
@@ -488,6 +798,14 @@ class Hospitalization(AuditableModel):
         related_name="hospitalizations",
         verbose_name="Lit affecté",
     )
+    practitioner = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="referring_hospitalizations",
+        verbose_name="Médecin référent",
+    )
     admission_date = models.DateTimeField(default=timezone.now, verbose_name="Date et heure d'admission")
     expected_discharge_date = models.DateTimeField(verbose_name="Date prévisionnelle de sortie")
     actual_discharge_date = models.DateTimeField(
@@ -497,7 +815,12 @@ class Hospitalization(AuditableModel):
         help_text="Dès renseignement, le lit bascule automatiquement au statut 'NETTOYAGE'.",
     )
     admission_reason = models.TextField(verbose_name="Motif d'hospitalisation")
-    entry_diagnosis = models.CharField(max_length=255, verbose_name="Diagnostic principal d'entrée")
+    entry_diagnosis = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Diagnostic principal d'entrée",
+    )
     status = models.CharField(
         max_length=20,
         choices=HospitalizationStatus.choices,
@@ -540,20 +863,33 @@ class Hospitalization(AuditableModel):
 
     def save(self, *args, **kwargs) -> None:
         """
-        Application automatique de la logique d'état des lits avec transaction atomique.
+        Application automatique de la logique d'état des lits avec transaction atomique
+        (admission, transfert inter-lits/services et sortie réelle).
         """
         with transaction.atomic():
+            previous_bed = None
+            if self.pk:
+                prev_hosp = Hospitalization.objects.select_related("bed").filter(pk=self.pk).first()
+                if prev_hosp and prev_hosp.bed_id != self.bed_id:
+                    previous_bed = prev_hosp.bed
+
             if self.actual_discharge_date:
                 # Sortie effective : clôture du séjour et passage immédiat du lit au statut NETTOYAGE
                 self.status = HospitalizationStatus.CLOTUREE
                 super().save(*args, **kwargs)
+                if previous_bed and previous_bed.status == BedStatus.OCCUPE:
+                    previous_bed.status = BedStatus.NETTOYAGE
+                    previous_bed.save(update_fields=["status", "updated_at"])
                 if self.bed.status != BedStatus.NETTOYAGE:
                     self.bed.status = BedStatus.NETTOYAGE
                     self.bed.save(update_fields=["status", "updated_at"])
             else:
-                # Admission active : le lit passe automatiquement à OCCUPÉ
+                # Admission active ou transfert de lit : l'ancien lit passe en NETTOYAGE et le nouveau à OCCUPÉ
                 self.status = HospitalizationStatus.EN_COURS
                 super().save(*args, **kwargs)
+                if previous_bed and previous_bed.status == BedStatus.OCCUPE:
+                    previous_bed.status = BedStatus.NETTOYAGE
+                    previous_bed.save(update_fields=["status", "updated_at"])
                 if self.bed.status != BedStatus.OCCUPE:
                     self.bed.status = BedStatus.OCCUPE
                     self.bed.save(update_fields=["status", "updated_at"])
@@ -766,4 +1102,127 @@ class ShiftReplacement(AuditableModel):
         if self.status == ShiftReplacementStatus.VALIDE and not self.validation_date:
             self.validation_date = timezone.now()
         super().save(*args, **kwargs)
+
+
+# -----------------------------------------------------------------------------
+# 6. Journal d'Audit de Sécurité Immuable (RGPD / HDS / HIPAA)
+# -----------------------------------------------------------------------------
+class AuditActionType(models.TextChoices):
+    """Types d'actions journalisées dans le registre d'audit de sécurité."""
+
+    CREATE = "CREATE", "Création de dossier / mouvement"
+    READ = "READ", "Consultation de dossier"
+    UPDATE = "UPDATE", "Mise à jour administrative / mouvement"
+    DELETE_ATTEMPT = "DELETE_ATTEMPT", "Tentative de suppression bloquée"
+    ACCESS_DENIED = "ACCESS_DENIED", "Accès refusé (Secret Médical)"
+    SESSION_TIMEOUT = "SESSION_TIMEOUT", "Expiration de session pour inactivité (5 min)"
+
+
+class ImmutableAuditQuerySet(models.QuerySet):
+    """Empêche toute modification ou suppression en masse sur la table d'audit."""
+
+    def update(self, **kwargs):
+        raise ValidationError("Sécurité HDS : La modification en masse des journaux d'audit est strictement interdite.")
+
+    def delete(self):
+        raise ValidationError("Sécurité HDS : La suppression en masse des journaux d'audit est strictement interdite.")
+
+
+class SecurityAuditLog(models.Model):
+    """
+    Journal d'audit de sécurité immuable (WORM : Write-Once-Read-Many) conforme HDS / RGPD / HIPAA.
+    Enregistre obligatoirement pour chaque action :
+    - user (ID_Utilisateur)
+    - timestamp (Horodatage)
+    - patient (ID_Patient)
+    - action_type (Type_Action)
+    """
+
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name="security_audit_logs",
+        verbose_name="Utilisateur (ID_Utilisateur)",
+    )
+    timestamp = models.DateTimeField(
+        default=timezone.now,
+        db_index=True,
+        editable=False,
+        verbose_name="Horodatage",
+    )
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="security_audit_logs",
+        verbose_name="Patient (ID_Patient)",
+    )
+    patient_ipp = models.CharField(max_length=20, blank=True, verbose_name="IPP Patient")
+    action_type = models.CharField(
+        max_length=30,
+        choices=AuditActionType.choices,
+        db_index=True,
+        verbose_name="Type d'action",
+    )
+    resource_name = models.CharField(max_length=80, default="Patient", verbose_name="Ressource concernée")
+    details = models.TextField(blank=True, verbose_name="Détails de l'opération")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="Adresse IP")
+
+    objects = ImmutableAuditQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = "Journal d'Audit de Sécurité (HDS)"
+        verbose_name_plural = "Journaux d'Audit de Sécurité (HDS)"
+        ordering = ["-timestamp", "-id"]
+        indexes = [
+            models.Index(fields=["user", "-timestamp"], name="idx_sec_audit_user_ts"),
+            models.Index(fields=["patient", "-timestamp"], name="idx_sec_audit_patient_ts"),
+            models.Index(fields=["action_type", "-timestamp"], name="idx_sec_audit_action_ts"),
+        ]
+
+    def __str__(self) -> str:
+        pat_str = self.patient_ipp or (f"Patient #{self.patient_id}" if self.patient_id else "Système")
+        return (
+            f"[{self.timestamp.strftime('%d/%m/%Y %H:%M:%S')}] "
+            f"User={self.user_id} ({self.user.username}) | {self.action_type} | {pat_str}"
+        )
+
+    def save(self, *args, **kwargs) -> None:
+        if self.pk is not None:
+            raise ValidationError(
+                "Sécurité HDS : Les entrées du journal d'audit sont immuables et ne peuvent pas être modifiées."
+            )
+        if self.patient and not self.patient_ipp:
+            self.patient_ipp = self.patient.ipp
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs) -> None:
+        raise ValidationError(
+            "Sécurité HDS : La suppression d'entrées du journal d'audit est strictement interdite."
+        )
+
+    @classmethod
+    def log_action(
+        cls,
+        user: Optional[CustomUser],
+        action_type: str,
+        patient: Optional[Patient] = None,
+        resource_name: str = "Patient",
+        details: str = "",
+        ip_address: Optional[str] = None,
+    ) -> Optional["SecurityAuditLog"]:
+        """Enregistre de manière sécurisée une entrée immuable dans le journal d'audit."""
+        if not user or not getattr(user, "is_authenticated", False):
+            return None
+        return cls.objects.create(
+            user=user,
+            patient=patient,
+            patient_ipp=patient.ipp if patient else "",
+            action_type=action_type,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+        )
+
 

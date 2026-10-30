@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="fr" class="h-full bg-slate-50">
+<html lang="fr" class="h-full bg-slate-50" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIH - Tableau de Bord Hospitalier & Capacité des Lits</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Supervision Hospitalière &amp; Gestion des Pôles Cliniques — Clinique Sidi Yahia 2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -27,69 +27,106 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-variant-numeric: tabular-nums;
+        }
+        /* Mode Garde de Nuit (Dark Mode) */
+        html.dark body { background-color: #0f172a; color: #f1f5f9; }
+        html.dark .cockpit-card { background-color: #1e293b !important; border-color: #334155 !important; color: #f1f5f9 !important; }
+        html.dark .cockpit-subcard { background-color: #0f172a !important; border-color: #334155 !important; }
+        html.dark .text-slate-900, html.dark .text-slate-800 { color: #f8fafc !important; }
+        html.dark .text-slate-700, html.dark .text-slate-600 { color: #cbd5e1 !important; }
+        html.dark .text-slate-500 { color: #94a3b8 !important; }
+        html.dark header, html.dark footer { background-color: #0f172a !important; border-color: #1e293b !important; }
     </style>
 </head>
-<body class="h-full flex flex-col text-slate-800 antialiased selection:bg-hospital-500 selection:text-white">
+<body class="min-h-full flex flex-col text-slate-800 antialiased selection:bg-hospital-600 selection:text-white transition-colors duration-200">
 
-    <!-- Top Navigation Bar -->
+    <!-- =================================================================== -->
+    <!-- BARRE SUPÉRIEURE DU COCKPIT DE SUPERVISION HOSPITALIÈRE             -->
+    <!-- =================================================================== -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16 items-center">
+            <div class="flex justify-between h-16 items-center gap-3">
+                <!-- Branding + Titre -->
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-hospital-700 to-hospital-500 flex items-center justify-center text-white shadow-md shadow-hospital-500/20">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                        </svg>
+                    <div class="w-11 h-11 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0">
+                        <img src="/static/images/logo_clinique.png" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
                     </div>
                     <div>
-                        <h1 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                            Clinique Sidi Yahia 2
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Conforme HDS &amp; RGPD
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900">
+                                Clinique Sidi Yahia 2
+                            </h1>
+                            <span class="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-hospital-50 text-hospital-700 border border-hospital-200">
+                                Supervision Hospitalière &amp; Pôles Cliniques
                             </span>
-                        </h1>
-                        <p class="text-xs text-slate-500">Système de Gestion Hospitalière Intégré (HMS / SIH)</p>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 mr-1 rounded-full bg-emerald-500 animate-pulse"></span>
+                                HDS / RGPD
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-500 hidden sm:block">
+                            Cockpit Décisionnel Temps Réel &bull; Gestion des Lits, Flux Patients &amp; Plannings des Équipes
+                        </p>
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-3">
-                    <!-- Profil Utilisateur Connecté & Rôle RBAC -->
-                    <div class="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
-                        <div class="w-8 h-8 rounded-lg bg-hospital-600 text-white flex items-center justify-center font-bold text-xs">
+                <!-- Recherche Rapide (Ctrl+K) + Mode Nuit + Profil -->
+                <div class="flex items-center space-x-2">
+                    <!-- Recherche instantanée dans le cockpit -->
+                    <div class="relative hidden lg:block w-60">
+                        <input
+                            type="text"
+                            id="cockpitQuickSearch"
+                            oninput="filterCockpitItems(this.value)"
+                            placeholder="Rechercher lit, patient, pôle... (Ctrl+K)"
+                            class="w-full rounded-xl border border-slate-300 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:bg-white focus:border-hospital-600 focus:ring-2 focus:ring-hospital-500/20 focus:outline-none"
+                        >
+                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+
+                    <!-- Bascule Mode Jour / Mode Garde de Nuit -->
+                    <button
+                        type="button"
+                        onclick="toggleNightShiftMode()"
+                        id="nightModeBtn"
+                        class="inline-flex items-center px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors"
+                        title="Basculer entre le Mode Jour et le Mode Garde de Nuit (Anti-fatigue visuelle)"
+                    >
+                        <span id="nightModeIcon">🌙</span>
+                        <span class="hidden xl:inline ml-1.5" id="nightModeLabel">Mode Nuit</span>
+                    </button>
+
+                    <!-- Badge Utilisateur & Rôle RBAC -->
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
+                        <div class="w-7 h-7 rounded-lg bg-hospital-600 text-white flex items-center justify-center font-bold text-xs">
                             {{ request.user.first_name|slice:":1"|default:request.user.username|slice:":1"|upper }}{{ request.user.last_name|slice:":1"|upper }}
                         </div>
                         <div class="text-left">
                             <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                                {{ request.user.get_full_name|default:request.user.username }}
+                                <span>{{ request.user.get_full_name|default:request.user.username }}</span>
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold border {{ role_config.badge_class }}">
                                     {{ request.user.get_role_display }}
                                 </span>
                             </div>
-                            <div class="text-[11px] text-slate-500">
-                                {% if request.user.department %}
-                                    Service : <strong>{{ request.user.department.name }} ({{ request.user.department.code }})</strong>
-                                {% else %}
-                                    Direction / Transversal
-                                {% endif %}
-                            </div>
                         </div>
                     </div>
 
-                    <a href="/admin/" class="inline-flex items-center px-3.5 py-2 border border-slate-300 shadow-xs text-xs font-semibold rounded-lg text-slate-700 bg-white hover:bg-slate-50 hover:text-hospital-600 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-hospital-500 transition-colors">
-                        <svg class="w-4 h-4 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
-                        </svg>
-                        Portail Métier &amp; DPI
+                    <a href="{% url 'core:patient_list' %}" class="inline-flex items-center px-3 py-2 rounded-xl text-xs font-bold bg-hospital-600 text-white hover:bg-hospital-700 shadow-xs transition-colors">
+                        Suivi Patients
                     </a>
 
-                    <a href="{% url 'logout' %}" class="inline-flex items-center px-3.5 py-2 border border-rose-200 shadow-xs text-xs font-semibold rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors" title="Fermer la session médicale">
-                        <svg class="w-4 h-4 mr-1.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                        </svg>
+                    <a href="/admin/" class="inline-flex items-center px-3 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors cockpit-card">
+                        Portail DPI
+                    </a>
+
+                    <a href="{% url 'logout' %}" class="inline-flex items-center px-2.5 py-2 border border-rose-200 text-xs font-semibold rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors" title="Déconnexion">
                         Déconnexion
                     </a>
                 </div>
@@ -97,265 +134,608 @@
         </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <!-- =================================================================== -->
+    <!-- CONTENU PRINCIPAL DU COCKPIT                                        -->
+    <!-- =================================================================== -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
 
-        <!-- Espace Métier Personnalisé selon le Rôle de l'Utilisateur -->
-        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Espace Métier Autorisé :</span>
-                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border {{ role_config.badge_class }}">
-                            {{ request.user.get_role_display }}
-                        </span>
+        <!-- Messages Flash Opérationnels -->
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between
+                {% if message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full {% if message.tags == 'error' %}bg-rose-500{% else %}bg-emerald-500{% endif %}"></span>
+                    <span>{{ message }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- =============================================================== -->
+        <!-- NIVEAU 1 : BANDEAU D'ALERTES & TENSION HOSPITALIÈRE (3 SECONDES) -->
+        <!-- =============================================================== -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <!-- Alerte 1 : Lits en Nettoyage à libérer -->
+            <div class="p-3.5 rounded-2xl border flex items-center justify-between gap-3 cockpit-card
+                {% if cleaning_beds > 0 %}bg-amber-50/70 border-amber-200{% else %}bg-white border-slate-200{% endif %}">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {% if cleaning_beds > 0 %}bg-amber-500 text-white{% else %}bg-emerald-100 text-emerald-700{% endif %}">
+                        🧹
                     </div>
-                    <p class="text-xs text-slate-600 mt-1">{{ role_config.description }}</p>
+                    <div>
+                        <div class="text-xs font-bold text-slate-900">
+                            {% if cleaning_beds > 0 %}
+                                {{ cleaning_beds }} lit{{ cleaning_beds|pluralize }} en attente de désinfection
+                            {% else %}
+                                Aucun lit bloqué en nettoyage
+                            {% endif %}
+                        </div>
+                        <p class="text-[11px] text-slate-500">
+                            {% if cleaning_beds > 0 %}Libérez ces lits en 1 clic pour augmenter la capacité d'aval{% else %}Tous les lits libérés sont opérationnels{% endif %}
+                        </p>
+                    </div>
                 </div>
-                <div class="text-xs text-slate-400 font-mono">
-                    ID : {{ request.user.username }}{% if request.user.license_number %} &bull; {{ request.user.license_number }}{% endif %}
-                </div>
-            </div>
-
-            <div class="mt-3.5 flex flex-wrap items-center gap-2">
-                {% for action in role_config.actions %}
-                <a href="{{ action.url }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-hospital-600 hover:text-white transition-colors">
-                    {{ action.label }}
-                    <svg class="w-3.5 h-3.5 ml-1.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                </a>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- Controls / Filters bar -->
-        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-center gap-4">
-            <!-- Week navigation -->
-            <div class="flex items-center space-x-2">
-                <a href="?week={{ prev_week_str }}{% if selected_dept_id %}&department={{ selected_dept_id }}{% endif %}" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors" title="Semaine précédente">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                </a>
-                <a href="?week={{ current_week_str }}{% if selected_dept_id %}&department={{ selected_dept_id }}{% endif %}" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-hospital-50 text-hospital-700 border border-hospital-200 hover:bg-hospital-100 transition-colors">
-                    Cette semaine
-                </a>
-                <a href="?week={{ next_week_str }}{% if selected_dept_id %}&department={{ selected_dept_id }}{% endif %}" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors" title="Semaine suivante">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                </a>
-                <span class="text-sm font-medium text-slate-700 pl-2">
-                    {{ monday|date:"d F" }} – {{ sunday|date:"d F Y" }}
-                </span>
-            </div>
-
-            <!-- Department Filter -->
-            <form method="GET" class="flex items-center space-x-2 w-full sm:w-auto">
-                {% if request.GET.week %}
-                <input type="hidden" name="week" value="{{ request.GET.week }}">
+                {% if cleaning_beds > 0 %}
+                <button type="button" onclick="filterBedsByStatus('NETTOYAGE')" class="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold whitespace-nowrap">
+                    Voir &amp; Libérer
+                </button>
                 {% endif %}
-                <label for="department_select" class="text-xs font-medium text-slate-500 whitespace-nowrap">Filtrer par service :</label>
-                <select id="department_select" name="department" onchange="this.form.submit()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-700 focus:ring-2 focus:ring-hospital-500 focus:outline-hidden">
-                    <option value="">Tous les départements</option>
-                    {% for dept in all_departments %}
-                    <option value="{{ dept.id }}" {% if selected_dept_id == dept.id %}selected{% endif %}>
-                        {{ dept.name }} ({{ dept.code }})
-                    </option>
-                    {% endfor %}
-                </select>
-            </form>
-        </div>
+            </div>
 
-        <!-- Section 1: KPI Bed Capacity Metrics -->
+            <!-- Alerte 2 : Remplacements / Effectifs à arbitrer -->
+            <div class="p-3.5 rounded-2xl border flex items-center justify-between gap-3 cockpit-card
+                {% if pending_replacements %}bg-rose-50/70 border-rose-200{% else %}bg-white border-slate-200{% endif %}">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {% if pending_replacements %}bg-rose-600 text-white animate-pulse{% else %}bg-sky-100 text-sky-700{% endif %}">
+                        ⚖️
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-900">
+                            {% if pending_replacements %}
+                                {{ pending_replacements|length }} permutation{{ pending_replacements|length|pluralize }} de garde à valider
+                            {% else %}
+                                Effectifs de garde complets ({{ today_shifts_count }} actifs)
+                            {% endif %}
+                        </div>
+                        <p class="text-[11px] text-slate-500">
+                            {% if pending_replacements %}Arbitrage requis par le Chef de Pôle / Direction{% else %}Continuité des soins assurée sur tous les pôles{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <button type="button" onclick="switchCockpitTab('planning')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-hospital-600 text-white text-[11px] font-bold whitespace-nowrap">
+                    Effectifs
+                </button>
+            </div>
+
+            <!-- Alerte 3 : Parcours Patients & Sorties du jour -->
+            <div class="p-3.5 rounded-2xl border border-slate-200 bg-white flex items-center justify-between gap-3 cockpit-card">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-hospital-100 text-hospital-700 flex items-center justify-center shrink-0 font-bold">
+                        🔄
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-900">
+                            Flux du jour : {{ occupied_beds }} hospitalisé{{ occupied_beds|pluralize }} &bull; {{ expected_discharges_today }} sortie{{ expected_discharges_today|pluralize }} prévue{{ expected_discharges_today|pluralize }}
+                        </div>
+                        <p class="text-[11px] text-slate-500">
+                            Vue Kanban temps réel (Admission, Service, Bloc, Réveil, Sortie)
+                        </p>
+                    </div>
+                </div>
+                <button type="button" onclick="switchCockpitTab('kanban')" class="px-2.5 py-1.5 rounded-lg bg-hospital-600 hover:bg-hospital-700 text-white text-[11px] font-bold whitespace-nowrap">
+                    Vue Kanban
+                </button>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- NIVEAU 2 : 4 CARTES KPI AVEC GRAPHIQUE EN ANNEAU SVG (DONUT)    -->
+        <!-- =============================================================== -->
         <section>
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                 <div>
-                    <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                    <h2 class="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                         <svg class="w-5 h-5 text-hospital-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                         </svg>
                         Capacité Hospitalière &amp; Statut des Lits en Temps Réel
                     </h2>
-                    <p class="text-xs text-slate-500">Mise à jour dynamique à l'admission et à la sortie effective des patients</p>
+                    <p class="text-xs text-slate-500">{{ role_config.description }}</p>
                 </div>
-                <div class="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-                    Taux d'occupation global : <span class="{% if occupancy_rate > 90 %}text-rose-600 font-bold{% elif occupancy_rate > 75 %}text-amber-600 font-bold{% else %}text-emerald-600 font-bold{% endif %}">{{ occupancy_rate }}%</span>
+
+                <!-- Raccourcis métiers du rôle connecté -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    {% for action in role_config.actions|slice:":4" %}
+                    <a href="{{ action.url }}" class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-hospital-600 hover:text-white hover:border-hospital-600 transition-colors cockpit-card">
+                        {{ action.label }}
+                    </a>
+                    {% endfor %}
                 </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Total Beds -->
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+                <!-- KPI 1 : Taux d'Occupation Global avec Anneau SVG (Donut Chart) -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between cockpit-card">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Lits Actifs</p>
-                        <p class="text-3xl font-extrabold text-slate-900 mt-1">{{ total_beds }}</p>
-                        <p class="text-xs text-slate-500 mt-1">Tous pôles confondus</p>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Occupation &amp; Capacité</p>
+                        <p class="text-3xl font-extrabold text-slate-900 mt-1">{{ occupancy_rate }}%</p>
+                        <p class="text-xs text-slate-500 mt-1">
+                            <strong>{{ total_beds }}</strong> lits actifs sur {{ all_departments|length }} pôles
+                        </p>
                     </div>
-                    <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    <!-- Donut Chart SVG -->
+                    <div class="relative w-16 h-16 flex items-center justify-center shrink-0">
+                        <svg class="w-16 h-16 -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="40" stroke="#e2e8f0" stroke-width="10" fill="transparent"></circle>
+                            <circle
+                                cx="50"
+                                cy="50"
+                                r="40"
+                                stroke="{% if occupancy_rate >= 85 %}#e11d48{% elif occupancy_rate >= 65 %}#f59e0b{% else %}#0284c7{% endif %}"
+                                stroke-width="10"
+                                stroke-dasharray="251.2"
+                                stroke-dashoffset="{{ donut_offset }}"
+                                stroke-linecap="round"
+                                fill="transparent"
+                            ></circle>
                         </svg>
+                        <span class="absolute text-[11px] font-extrabold text-slate-800">{{ occupied_beds }}/{{ total_beds }}</span>
                     </div>
                 </div>
 
-                <!-- Occupied Beds -->
-                <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-xs flex items-center justify-between bg-gradient-to-br from-white to-rose-50/30">
+                <!-- KPI 2 : Lits Disponibles Immédiatement -->
+                <div onclick="filterBedsByStatus('DISPONIBLE')" class="cursor-pointer bg-white p-4 rounded-2xl border border-emerald-200 shadow-xs flex items-center justify-between bg-gradient-to-br from-white to-emerald-50/40 hover:shadow-md transition-all cockpit-card">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-rose-500">Lits Occupés</p>
-                        <p class="text-3xl font-extrabold text-rose-600 mt-1">{{ occupied_beds }}</p>
-                        <p class="text-xs text-rose-700/80 mt-1">{{ occupancy_rate }}% de capacité mobilisée</p>
-                    </div>
-                    <div class="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
-                    </div>
-                </div>
-
-                <!-- Cleaning Beds -->
-                <div class="bg-white p-5 rounded-2xl border border-amber-100 shadow-xs flex items-center justify-between bg-gradient-to-br from-white to-amber-50/30">
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-amber-500">En Nettoyage / Désinfection</p>
-                        <p class="text-3xl font-extrabold text-amber-600 mt-1">{{ cleaning_beds }}</p>
-                        <p class="text-xs text-amber-700/80 mt-1">Bascule automatique après sortie</p>
-                    </div>
-                    <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
-                        </svg>
-                    </div>
-                </div>
-
-                <!-- Available Beds -->
-                <div class="bg-white p-5 rounded-2xl border border-emerald-100 shadow-xs flex items-center justify-between bg-gradient-to-br from-white to-emerald-50/30">
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wider text-emerald-500">Lits Immédiatement Disponibles</p>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Lits Disponibles</p>
                         <p class="text-3xl font-extrabold text-emerald-600 mt-1">{{ available_beds }}</p>
-                        <p class="text-xs text-emerald-700/80 mt-1">Prêts pour admission</p>
+                        <p class="text-xs text-emerald-700/80 mt-1">Cliquez pour filtrer les lits libres</p>
                     </div>
-                    <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-lg">
+                        ✓
+                    </div>
+                </div>
+
+                <!-- KPI 3 : Lits Occupés -->
+                <div onclick="filterBedsByStatus('OCCUPE')" class="cursor-pointer bg-white p-4 rounded-2xl border border-rose-200 shadow-xs flex items-center justify-between bg-gradient-to-br from-white to-rose-50/40 hover:shadow-md transition-all cockpit-card">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600">Lits Occupés</p>
+                        <p class="text-3xl font-extrabold text-rose-600 mt-1">{{ occupied_beds }}</p>
+                        <p class="text-xs text-rose-700/80 mt-1">Cliquez sur un lit pour ouvrir son DPI</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-lg">
+                        🛏️
+                    </div>
+                </div>
+
+                <!-- KPI 4 : En Nettoyage / Désinfection -->
+                <div onclick="filterBedsByStatus('NETTOYAGE')" class="cursor-pointer bg-white p-4 rounded-2xl border border-amber-200 shadow-xs flex items-center justify-between bg-gradient-to-br from-white to-amber-50/40 hover:shadow-md transition-all cockpit-card">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600">En Nettoyage</p>
+                        <p class="text-3xl font-extrabold text-amber-600 mt-1">{{ cleaning_beds }}</p>
+                        <p class="text-xs text-amber-700/80 mt-1">Libération rapide en 1 clic</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-lg">
+                        🧹
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Section 2: Detailed Bed Monitoring by Department -->
-        <section class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/60">
-                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Répartition Détaillée des Lits par Service</h3>
-                <div class="flex items-center space-x-3 text-xs">
-                    <span class="inline-flex items-center text-emerald-700"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1.5"></span> Disponible</span>
-                    <span class="inline-flex items-center text-rose-700"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 mr-1.5"></span> Occupé</span>
-                    <span class="inline-flex items-center text-amber-700"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 mr-1.5"></span> Nettoyage</span>
-                    <span class="inline-flex items-center text-slate-500"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 mr-1.5"></span> Maintenance</span>
+        <!-- =============================================================== -->
+        <!-- NIVEAU 3 : NAVIGATION PAR ONGLETS MÉTIERS & FILTRES INTELLIGENTS-->
+        <!-- =============================================================== -->
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 cockpit-card">
+            <!-- Onglets de Vue du Cockpit -->
+            <div class="flex flex-wrap items-center gap-1.5" role="tablist">
+                <button type="button" id="tabBtn-all" onclick="switchCockpitTab('all')" class="cockpit-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs transition-all">
+                    🎛️ Vue Cockpit Complète
+                </button>
+                <button type="button" id="tabBtn-beds" onclick="switchCockpitTab('beds')" class="cockpit-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                    🏥 Supervision des Pôles &amp; Lits ({{ total_beds }})
+                </button>
+                <button type="button" id="tabBtn-kanban" onclick="switchCockpitTab('kanban')" class="cockpit-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                    📋 Kanban Parcours Patients
+                </button>
+                <button type="button" id="tabBtn-planning" onclick="switchCockpitTab('planning')" class="cockpit-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+                    🗓️ Planning des Gardes &amp; Effectifs
+                    {% if pending_replacements %}
+                    <span class="ml-1 px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px]">{{ pending_replacements|length }}</span>
+                    {% endif %}
+                </button>
+            </div>
+
+            <!-- Sélecteur de Semaine & Filtre par Pôle Clinique -->
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="flex items-center space-x-1 bg-slate-50 border border-slate-200 rounded-xl p-1 cockpit-subcard">
+                    <a href="?week={{ prev_week_str }}{% if selected_dept_id %}&department={{ selected_dept_id }}{% endif %}" class="p-1.5 rounded-lg text-slate-600 hover:bg-white transition-colors" title="Semaine précédente">
+                        &larr;
+                    </a>
+                    <a href="?week={{ current_week_str }}{% if selected_dept_id %}&department={{ selected_dept_id }}{% endif %}" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white text-hospital-700 shadow-2xs">
+                        {{ monday|date:"d/m" }} – {{ sunday|date:"d/m/Y" }}
+                    </a>
+                    <a href="?week={{ next_week_str }}{% if selected_dept_id %}&department={{ selected_dept_id }}{% endif %}" class="p-1.5 rounded-lg text-slate-600 hover:bg-white transition-colors" title="Semaine suivante">
+                        &rarr;
+                    </a>
+                </div>
+
+                <form method="GET" class="flex items-center">
+                    {% if request.GET.week %}
+                    <input type="hidden" name="week" value="{{ request.GET.week }}">
+                    {% endif %}
+                    <select id="department_select" name="department" onchange="this.form.submit()" class="text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-hospital-500 focus:outline-none cockpit-subcard">
+                        <option value="">Tous les pôles cliniques ({{ all_departments|length }})</option>
+                        {% for dept in all_departments %}
+                        <option value="{{ dept.id }}" {% if selected_dept_id == dept.id %}selected{% endif %}>
+                            {{ dept.name }} ({{ dept.code }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- SECTION A : SUPERVISION DES PÔLES CLINIQUES & PLAN DES LITS     -->
+        <!-- =============================================================== -->
+        <section id="cockpitSection-beds" class="space-y-4">
+            <!-- Barre de Filtres Intelligents 1-Clic (Smart Chips) -->
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2 cockpit-card">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">Filtres rapides Lits :</span>
+                    <button type="button" onclick="filterBedsByStatus('ALL')" id="bedChip-ALL" class="bed-filter-chip px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white">
+                        Tous les lits ({{ total_beds }})
+                    </button>
+                    <button type="button" onclick="filterBedsByStatus('DISPONIBLE')" id="bedChip-DISPONIBLE" class="bed-filter-chip px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100">
+                        🟢 Disponibles ({{ available_beds }})
+                    </button>
+                    <button type="button" onclick="filterBedsByStatus('OCCUPE')" id="bedChip-OCCUPE" class="bed-filter-chip px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100">
+                        🔴 Occupés ({{ occupied_beds }})
+                    </button>
+                    <button type="button" onclick="filterBedsByStatus('NETTOYAGE')" id="bedChip-NETTOYAGE" class="bed-filter-chip px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100">
+                        🧹 En nettoyage à libérer ({{ cleaning_beds }})
+                    </button>
+                </div>
+
+                <!-- Pastilles rapides de Statut Patient -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    {% for st in status_summary %}
+                    <a href="{% url 'core:patient_list' %}?status={{ st.code }}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border {{ st.badge_classes }}">
+                        <span class="w-1.5 h-1.5 rounded-full {{ st.dot_classes }}"></span>
+                        <span>{{ st.label }} : {{ st.patient_count }}</span>
+                    </a>
+                    {% endfor %}
                 </div>
             </div>
 
-            <div class="divide-y divide-slate-100">
+            <!-- Cartes des Pôles Cliniques avec Barre de Capacité Segmentée -->
+            <div class="space-y-4">
                 {% for dept_info in departments_data %}
-                <div class="p-5">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                        <div>
-                            <span class="text-sm font-bold text-slate-900">{{ dept_info.department.name }}</span>
-                            <span class="ml-2 text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600">{{ dept_info.department.code }}</span>
-                            <span class="text-xs text-slate-400 ml-2">Bât. {{ dept_info.department.building }} - Ét. {{ dept_info.department.floor }}</span>
-                        </div>
-                        <div class="text-xs text-slate-600 flex items-center space-x-3">
-                            <span>Total : <strong>{{ dept_info.total }}</strong></span>
-                            <span class="text-emerald-600 font-medium">Dispo : {{ dept_info.available }}</span>
-                            <span class="text-rose-600 font-medium">Occupés : {{ dept_info.occupied }}</span>
-                            <span class="text-amber-600 font-medium">Nettoyage : {{ dept_info.cleaning }}</span>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cockpit-card pole-card" data-pole-name="{{ dept_info.department.name|lower }} {{ dept_info.department.code|lower }}">
+                    <!-- En-tête du Pôle Clinique + Barre de Capacité Segmentée -->
+                    <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 cockpit-subcard">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="text-sm sm:text-base font-extrabold text-slate-900">
+                                        {{ dept_info.department.name }}
+                                    </h3>
+                                    <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-200/80 text-slate-800">
+                                        {{ dept_info.department.code }}
+                                    </span>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border {{ dept_info.tension_badge }}">
+                                        {{ dept_info.tension_label }} ({{ dept_info.occupied_pct }}%)
+                                    </span>
+                                    <span class="text-xs text-slate-400">
+                                        &bull; Bât. {{ dept_info.department.building }} (Ét. {{ dept_info.department.floor }})
+                                    </span>
+                                </div>
+                                <div class="mt-1 flex items-center gap-4 text-xs text-slate-500">
+                                    <span>👨‍⚕️ Effectif de garde aujourd'hui : <strong class="text-slate-800">{{ dept_info.today_staff_count }} soignant{{ dept_info.today_staff_count|pluralize }}</strong></span>
+                                    <span>🛏️ Capacité totale : <strong class="text-slate-800">{{ dept_info.total }} lits</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Compteurs et Barre de Progression Segmentée Multi-États -->
+                            <div class="w-full md:w-72 space-y-1.5">
+                                <div class="flex justify-between text-[11px] font-bold">
+                                    <span class="text-rose-600">{{ dept_info.occupied }} Occupé{{ dept_info.occupied|pluralize }}</span>
+                                    <span class="text-amber-600">{{ dept_info.cleaning }} Nettoyage</span>
+                                    <span class="text-emerald-600">{{ dept_info.available }} Dispo</span>
+                                </div>
+                                <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden flex">
+                                    <div style="width: {{ dept_info.occupied_pct }}%" class="bg-rose-500 h-full transition-all" title="Occupés : {{ dept_info.occupied_pct }}%"></div>
+                                    <div style="width: {{ dept_info.cleaning_pct }}%" class="bg-amber-400 h-full transition-all" title="En nettoyage : {{ dept_info.cleaning_pct }}%"></div>
+                                    <div style="width: {{ dept_info.available_pct }}%" class="bg-emerald-500 h-full transition-all" title="Disponibles : {{ dept_info.available_pct }}%"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Beds Grid -->
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 mt-2">
-                        {% for item in dept_info.beds %}
-                        <div class="p-2.5 rounded-xl border transition-all text-xs
-                            {% if item.bed.status == BedStatus.DISPONIBLE %}
-                                bg-emerald-50/50 border-emerald-200 text-emerald-900 hover:border-emerald-300
-                            {% elif item.bed.status == BedStatus.OCCUPE %}
-                                bg-rose-50/50 border-rose-200 text-rose-900 hover:border-rose-300
-                            {% elif item.bed.status == BedStatus.NETTOYAGE %}
-                                bg-amber-50/50 border-amber-200 text-amber-900 hover:border-amber-300
-                            {% else %}
-                                bg-slate-50 border-slate-200 text-slate-600
-                            {% endif %}
-                        ">
-                            <div class="flex justify-between items-start font-semibold">
-                                <span>Ch. {{ item.bed.room_number }}</span>
-                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase
-                                    {% if item.bed.status == BedStatus.DISPONIBLE %} bg-emerald-200/60 text-emerald-800
-                                    {% elif item.bed.status == BedStatus.OCCUPE %} bg-rose-200/60 text-rose-800
-                                    {% elif item.bed.status == BedStatus.NETTOYAGE %} bg-amber-200/60 text-amber-800
-                                    {% else %} bg-slate-200 text-slate-700 {% endif %}">
-                                    L{{ item.bed.bed_number }}
-                                </span>
-                            </div>
-
-                            <div class="mt-2 truncate">
-                                {% if item.bed.status == BedStatus.OCCUPE and item.active_hospitalization %}
-                                    <div class="font-medium text-slate-900 truncate" title="{{ item.active_hospitalization.patient.last_name }} {{ item.active_hospitalization.patient.first_name }}">
-                                        {{ item.active_hospitalization.patient.last_name }} {{ item.active_hospitalization.patient.first_name|slice:":1" }}.
-                                    </div>
-                                    <div class="text-[10px] text-slate-500 font-mono">
-                                        IPP: {{ item.active_hospitalization.patient.ipp }}
-                                    </div>
+                    <!-- Grille Interactive des Chambres & Lits du Pôle -->
+                    <div class="p-4 sm:p-5">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                            {% for item in dept_info.beds %}
+                            <div
+                                class="bed-tile p-3 rounded-xl border transition-all flex flex-col justify-between text-xs
+                                {% if item.bed.status == BedStatus.DISPONIBLE %}
+                                    bg-emerald-50/50 border-emerald-200 text-emerald-900 hover:border-emerald-400 hover:shadow-xs
+                                {% elif item.bed.status == BedStatus.OCCUPE %}
+                                    bg-rose-50/50 border-rose-200 text-rose-900 hover:border-rose-400 hover:shadow-sm cursor-pointer
                                 {% elif item.bed.status == BedStatus.NETTOYAGE %}
-                                    <div class="text-[11px] text-amber-700 italic flex items-center gap-1">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                                        Désinfection requise
-                                    </div>
-                                {% elif item.bed.status == BedStatus.DISPONIBLE %}
-                                    <div class="text-[11px] text-emerald-700 font-medium">
-                                        ✓ Prêt à l'accueil
-                                    </div>
+                                    bg-amber-50/60 border-amber-300 text-amber-900 hover:border-amber-400 hover:shadow-xs
                                 {% else %}
-                                    <div class="text-[11px] text-slate-500">
-                                        Indisponible
-                                    </div>
+                                    bg-slate-50 border-slate-200 text-slate-600
+                                {% endif %}"
+                                data-bed-status="{{ item.bed.status }}"
+                                data-search-text="chambre {{ item.bed.room_number }} lit {{ item.bed.bed_number }} {{ dept_info.department.name|lower }} {% if item.active_hospitalization %}{{ item.active_hospitalization.patient.last_name|lower }} {{ item.active_hospitalization.patient.first_name|lower }} {{ item.active_hospitalization.patient.ipp|lower }}{% endif %}"
+                                {% if item.bed.status == BedStatus.OCCUPE and item.active_hospitalization %}
+                                onclick="openBedDrawer(
+                                    '{{ dept_info.department.name|escapejs }} ({{ dept_info.department.code|escapejs }})',
+                                    'Chambre {{ item.bed.room_number|escapejs }} — Lit {{ item.bed.bed_number|escapejs }}',
+                                    '{{ item.active_hospitalization.patient.last_name|upper|escapejs }} {{ item.active_hospitalization.patient.first_name|escapejs }}',
+                                    '{{ item.active_hospitalization.patient.ipp|escapejs }}',
+                                    '{{ item.active_hospitalization.patient.birth_date|date:"d/m/Y" }} ({{ item.active_hospitalization.patient.blood_group|escapejs }})',
+                                    '{{ item.active_hospitalization.patient.known_allergies|default:"Aucune allergie signalée"|escapejs }}',
+                                    '{% if item.active_hospitalization.practitioner %}Dr {{ item.active_hospitalization.practitioner.get_full_name|default:item.active_hospitalization.practitioner.username|escapejs }}{% else %}Équipe médicale du pôle{% endif %}',
+                                    '{{ item.active_hospitalization.admission_reason|escapejs }}',
+                                    '{{ item.active_hospitalization.admission_date|date:"d/m/Y à H:i" }}',
+                                    '{{ item.active_hospitalization.expected_discharge_date|date:"d/m/Y" }}',
+                                    '{{ item.active_hospitalization.patient.current_status.label|default:"En Service"|escapejs }}',
+                                    '{{ item.active_hospitalization.patient.id }}',
+                                    '{{ item.active_hospitalization.id }}'
+                                )"
                                 {% endif %}
+                            >
+                                <!-- Ligne Haut : Chambre & Numéro de Lit -->
+                                <div>
+                                    <div class="flex justify-between items-center font-bold">
+                                        <span class="text-slate-900">Ch. {{ item.bed.room_number }}</span>
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase
+                                            {% if item.bed.status == BedStatus.DISPONIBLE %} bg-emerald-200/70 text-emerald-900
+                                            {% elif item.bed.status == BedStatus.OCCUPE %} bg-rose-200/80 text-rose-900
+                                            {% elif item.bed.status == BedStatus.NETTOYAGE %} bg-amber-200/80 text-amber-900
+                                            {% else %} bg-slate-200 text-slate-700 {% endif %}">
+                                            Lit {{ item.bed.bed_number }}
+                                        </span>
+                                    </div>
+
+                                    <!-- Contenu Central selon le Statut du Lit -->
+                                    <div class="mt-2">
+                                        {% if item.bed.status == BedStatus.OCCUPE and item.active_hospitalization %}
+                                            <div class="font-bold text-slate-900 truncate" title="{{ item.active_hospitalization.patient.last_name }} {{ item.active_hospitalization.patient.first_name }}">
+                                                {{ item.active_hospitalization.patient.last_name|upper }} {{ item.active_hospitalization.patient.first_name|slice:":1" }}.
+                                            </div>
+                                            <div class="text-[10px] text-slate-500 font-mono truncate">
+                                                {{ item.active_hospitalization.patient.ipp }}
+                                            </div>
+                                            {% if item.active_hospitalization.patient.known_allergies and item.active_hospitalization.patient.known_allergies != "Aucune" %}
+                                            <div class="mt-1 inline-flex items-center px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-bold truncate max-w-full">
+                                                ⚠ {{ item.active_hospitalization.patient.known_allergies }}
+                                            </div>
+                                            {% endif %}
+                                        {% elif item.bed.status == BedStatus.NETTOYAGE %}
+                                            <div class="text-[11px] text-amber-800 font-semibold flex items-center gap-1">
+                                                🧹 Désinfection en cours
+                                            </div>
+                                            <p class="text-[10px] text-amber-700/80 mt-0.5">Sortie effectuée</p>
+                                        {% elif item.bed.status == BedStatus.DISPONIBLE %}
+                                            <div class="text-[11px] text-emerald-800 font-semibold">
+                                                ✓ Prêt à l'accueil
+                                            </div>
+                                            <p class="text-[10px] text-emerald-700/70 mt-0.5">Immédiatement libre</p>
+                                        {% else %}
+                                            <div class="text-[11px] text-slate-500">Maintenance</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Barre d'Action Rapide en Bas de Tuile -->
+                                <div class="mt-2.5 pt-2 border-t border-black/5 flex items-center justify-between gap-1">
+                                    {% if item.bed.status == BedStatus.OCCUPE and item.active_hospitalization %}
+                                        <span class="text-[10px] font-bold text-hospital-700 hover:underline">
+                                            🔍 Détails &amp; Statut
+                                        </span>
+                                        <a
+                                            href="{% url 'core:admission_consent_pdf' item.active_hospitalization.id %}"
+                                            target="_blank"
+                                            onclick="event.stopPropagation();"
+                                            class="px-1.5 py-0.5 rounded bg-slate-900 text-white text-[9px] font-bold hover:bg-hospital-700"
+                                            title="Ouvrir le PDF de Consentement aux Soins et Décharge"
+                                        >
+                                            📄 PDF
+                                        </a>
+                                    {% elif item.bed.status == BedStatus.NETTOYAGE %}
+                                        {% if request.user.role != 'GESTIONNAIRE_ADMISSION' %}
+                                        <form method="post" action="{% url 'core:quick_bed_status' item.bed.id %}" class="w-full">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="target_status" value="DISPONIBLE">
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit" class="w-full py-1 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] shadow-2xs transition-colors">
+                                                ✓ Marquer Disponible
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        <span class="text-[10px] text-amber-800 italic">Attente validation IDE</span>
+                                        {% endif %}
+                                    {% elif item.bed.status == BedStatus.DISPONIBLE %}
+                                        <a href="/admin/core/hospitalization/add/?bed={{ item.bed.id }}" class="w-full text-center py-1 px-2 rounded-lg bg-white hover:bg-emerald-600 text-emerald-800 hover:text-white border border-emerald-300 font-bold text-[10px] transition-colors">
+                                            + Affecter Patient
+                                        </a>
+                                    {% endif %}
+                                </div>
                             </div>
+                            {% endfor %}
                         </div>
-                        {% empty %}
-                        <p class="text-xs text-slate-400 italic col-span-full">Aucun lit configuré pour ce service.</p>
-                        {% endfor %}
                     </div>
                 </div>
                 {% empty %}
-                <div class="p-6 text-center text-slate-400 text-xs">
-                    Aucun département trouvé dans la base hospitalière.
+                <div class="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                    Aucun pôle clinique trouvé.
                 </div>
                 {% endfor %}
             </div>
         </section>
 
-        <!-- Section 3: Dynamic Weekly Shift Planning Matrix -->
-        <section class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50/60">
+        <!-- =============================================================== -->
+        <!-- SECTION B : VUE KANBAN DU PARCOURS & FLUX PATIENTS              -->
+        <!-- =============================================================== -->
+        <section id="cockpitSection-kanban" class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cockpit-card">
+            <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/60 cockpit-subcard">
                 <div>
-                    <h3 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                    <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                        <span>📋 Kanban du Flux &amp; Parcours Patients en Temps Réel</span>
+                    </h3>
+                    <p class="text-xs text-slate-500">
+                        Visualisation par étape clinique (Admission &rarr; Service &rarr; Bloc &rarr; Réveil &rarr; Sortie) avec bascule rapide
+                    </p>
+                </div>
+                <a href="{% url 'core:patient_list' %}" class="inline-flex items-center px-3 py-1.5 rounded-xl bg-hospital-600 text-white text-xs font-bold hover:bg-hospital-700">
+                    Vue Liste &amp; Recherche Avancée &rarr;
+                </a>
+            </div>
+
+            <div class="p-4 overflow-x-auto">
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 min-w-[900px]">
+                    {% for col in kanban_columns %}
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex flex-col cockpit-subcard">
+                        <!-- En-tête Colonne Kanban -->
+                        <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border {{ col.status.badge_classes }}">
+                                <span class="w-2 h-2 rounded-full {{ col.status.dot_classes }}"></span>
+                                {{ col.status.label }}
+                            </span>
+                            <span class="text-xs font-extrabold text-slate-700 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                                {{ col.count }}
+                            </span>
+                        </div>
+
+                        <!-- Cartes Patients de la Colonne -->
+                        <div class="space-y-2.5 flex-1">
+                            {% for pat in col.patients %}
+                            <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2 cockpit-card">
+                                <div class="flex items-start justify-between gap-1">
+                                    <div>
+                                        <div class="text-xs font-extrabold text-slate-900">
+                                            {{ pat.last_name|upper }} {{ pat.first_name }}
+                                        </div>
+                                        <div class="text-[10px] font-mono text-hospital-700 font-semibold">
+                                            {{ pat.ipp }}
+                                        </div>
+                                    </div>
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                                        {{ pat.blood_group }}
+                                    </span>
+                                </div>
+
+                                {% if pat.known_allergies and pat.known_allergies != "Aucune" %}
+                                <div class="px-2 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-bold">
+                                    ⚠ Allergie : {{ pat.known_allergies }}
+                                </div>
+                                {% endif %}
+
+                                <!-- Changement rapide de statut depuis la carte Kanban -->
+                                <form method="post" action="{% url 'core:patient_change_status' pat.id %}" class="flex items-center gap-1 pt-1">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <select name="new_status_code" onchange="this.form.submit()" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold text-slate-700 focus:border-hospital-600 focus:outline-none">
+                                        {% for st_opt in status_summary %}
+                                        <option value="{{ st_opt.code }}" {% if pat.current_status_id == st_opt.id %}selected{% endif %}>
+                                            &rarr; {{ st_opt.label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <a href="{% url 'core:patient_consent_pdf' pat.id %}" target="_blank" class="px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-bold hover:bg-hospital-700 shrink-0" title="Consentement PDF">
+                                        📄 PDF
+                                    </a>
+                                </form>
+                            </div>
+                            {% empty %}
+                            <div class="py-6 text-center text-[11px] text-slate-400 italic">
+                                Aucun patient
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- SECTION C : PLANNING DES GARDES & RÉÉQUILIBRAGE DES EFFECTIFS   -->
+        <!-- =============================================================== -->
+        <section id="cockpitSection-planning" class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cockpit-card">
+            <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50/60 cockpit-subcard">
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                         <svg class="w-5 h-5 text-hospital-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                         </svg>
                         Planning des Gardes, Astreintes &amp; Remplacements de la Semaine
                     </h3>
-                    <p class="text-xs text-slate-500">Matrice de planification par département de soin avec verrouillage strict des permutations</p>
+                    <p class="text-xs text-slate-500">Matrice de planification par pôle clinique avec verrouillage strict d'appartenance départementale</p>
                 </div>
                 <div class="flex items-center space-x-2 text-xs">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-sky-100 text-sky-800 font-medium">Jour</span>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-medium">Nuit</span>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">Astreinte</span>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-medium">24h</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-sky-100 text-sky-800 font-semibold">Jour</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-semibold">Nuit</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">Astreinte</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-semibold">24h</span>
                 </div>
             </div>
 
+            <!-- Panneau d'Arbitrage 1-Clic des Demandes de Remplacement en Attente -->
+            {% if pending_replacements %}
+            <div class="p-4 bg-amber-50/80 border-b border-amber-200 space-y-2">
+                <div class="text-xs font-extrabold text-amber-900 uppercase tracking-wider">
+                    ⏳ Demandes de Permutation / Renfort en Attente d'Arbitrage ({{ pending_replacements|length }})
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    {% for rep in pending_replacements %}
+                    <div class="p-3 rounded-xl bg-white border border-amber-300 flex items-center justify-between gap-3 text-xs">
+                        <div>
+                            <div class="font-bold text-slate-900">
+                                {{ rep.duty_shift.department.name }} ({{ rep.duty_shift.shift_date|date:"d/m/Y" }})
+                            </div>
+                            <div class="text-slate-600 mt-0.5">
+                                Titulaire : <strong>{{ rep.original_caregiver.get_full_name }}</strong> &rarr; Remplaçant : <strong class="text-emerald-700">{{ rep.substitute_caregiver.get_full_name }}</strong>
+                            </div>
+                            <div class="text-[11px] text-slate-400 italic">Motif : {{ rep.reason }}</div>
+                        </div>
+                        {% if is_chief_or_admin %}
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <form method="post" action="{% url 'core:quick_replacement_validate' rep.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="decision" value="VALIDE">
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]">
+                                    ✓ Valider
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'core:quick_replacement_validate' rep.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="decision" value="REFUSE">
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-[11px]">
+                                    ✕ Refuser
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Grille Hebdomadaire des Gardes -->
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse min-w-[900px]">
                     <thead>
-                        <tr class="bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                            <th class="py-3.5 px-4 w-48 sticky left-0 bg-slate-100/90 z-10 backdrop-blur-xs">Département</th>
+                        <tr class="bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider cockpit-subcard">
+                            <th class="py-3.5 px-4 w-48 sticky left-0 bg-slate-100/90 z-10 cockpit-subcard">Département</th>
                             {% for day in week_days %}
                             <th class="py-3.5 px-3 text-center border-l border-slate-200 {% if day.is_today %}bg-hospital-50 text-hospital-800 font-extrabold{% endif %}">
                                 <div>{{ day.name }}</div>
@@ -367,13 +747,11 @@
                     <tbody class="divide-y divide-slate-100 text-xs">
                         {% for row in planning_matrix %}
                         <tr class="hover:bg-slate-50/40 transition-colors">
-                            <!-- Department Name Sticky Cell -->
-                            <td class="py-3 px-4 font-semibold text-slate-900 sticky left-0 bg-white z-10 border-r border-slate-100 shadow-xs">
+                            <td class="py-3 px-4 font-semibold text-slate-900 sticky left-0 bg-white z-10 border-r border-slate-100 shadow-xs cockpit-card">
                                 <div class="font-bold text-slate-900">{{ row.department.name }}</div>
                                 <div class="text-[11px] text-slate-400 font-mono">{{ row.department.code }}</div>
                             </td>
 
-                            <!-- 7 Days cells -->
                             {% for day_cell in row.days_list %}
                             <td class="py-2.5 px-2 align-top border-l border-slate-100 {% if day_cell.day.is_today %}bg-hospital-50/20{% endif %} min-w-[130px]">
                                 <div class="space-y-1.5">
@@ -394,7 +772,6 @@
                                             <span class="font-mono text-slate-500">{{ item.shift.start_time|time:"H:i" }}-{{ item.shift.end_time|time:"H:i" }}</span>
                                         </div>
 
-                                        <!-- Caregiver titular -->
                                         {% if item.validated_replacement %}
                                         <div class="line-through text-slate-400">
                                             {{ item.shift.staff_member.last_name }}
@@ -435,19 +812,214 @@
 
     </main>
 
+    <!-- =================================================================== -->
+    <!-- TIROIR LATÉRAL DE DÉTAIL (SLIDE-OVER DRAWER) PATIENT & LIT OCCUPÉ   -->
+    <!-- =================================================================== -->
+    <div id="bedDetailDrawer" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end">
+        <div class="bg-white w-full max-w-md h-full shadow-2xl border-l border-slate-200 flex flex-col justify-between overflow-y-auto cockpit-card">
+            <div>
+                <!-- En-tête du Drawer -->
+                <div class="p-5 bg-slate-900 text-white flex items-center justify-between">
+                    <div>
+                        <span id="drawerPole" class="text-[11px] font-bold uppercase tracking-wider text-sky-400">Pôle Clinique</span>
+                        <h3 id="drawerRoomBed" class="text-base font-extrabold mt-0.5">Chambre &amp; Lit</h3>
+                    </div>
+                    <button type="button" onclick="closeBedDrawer()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white font-bold">
+                        ✕
+                    </button>
+                </div>
+
+                <!-- Corps du Drawer -->
+                <div class="p-5 space-y-4 text-xs">
+                    <!-- Identité Patient -->
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 cockpit-subcard">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold uppercase text-slate-400">Patient Hospitalisé</span>
+                            <span id="drawerStatusBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800">Statut</span>
+                        </div>
+                        <div id="drawerPatientName" class="text-base font-extrabold text-slate-900">-</div>
+                        <div class="flex items-center gap-3 text-slate-600">
+                            <span id="drawerPatientIpp" class="font-mono font-bold text-hospital-700">IPP</span>
+                            <span>&bull;</span>
+                            <span id="drawerPatientDob">Naissance</span>
+                        </div>
+                    </div>
+
+                    <!-- Alerte Allergies Vitales -->
+                    <div class="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
+                        <div class="text-[10px] font-bold uppercase text-rose-600">⚠ Allergies Vitales (Sécurité Placement &amp; Soins)</div>
+                        <div id="drawerAllergies" class="text-xs font-bold text-rose-900 mt-0.5">-</div>
+                    </div>
+
+                    <!-- Informations de Séjour & Médecin Référent -->
+                    <div class="space-y-2.5 border-t border-slate-200 pt-3">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500 font-medium">Médecin référent :</span>
+                            <span id="drawerDoctor" class="font-bold text-slate-900">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500 font-medium">Motif d'admission :</span>
+                            <span id="drawerReason" class="font-semibold text-slate-800 text-right max-w-[60%]">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500 font-medium">Date d'admission :</span>
+                            <span id="drawerAdmDate" class="font-mono text-slate-800">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500 font-medium">Sortie prévisionnelle :</span>
+                            <span id="drawerExpDischarge" class="font-mono font-bold text-emerald-700">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Actions Rapides sur le Patient -->
+                    <div class="border-t border-slate-200 pt-4 space-y-2.5">
+                        <div class="text-[11px] font-bold uppercase text-slate-400">Actions Rapides (Enregistrées dans l'Audit HDS)</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <a id="drawerConsentPdfLink" href="#" target="_blank" class="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-hospital-700 text-white font-bold text-center transition-colors">
+                                📄 Consentement PDF
+                            </a>
+                            <a id="drawerTransferLink" href="#" class="py-2.5 px-3 rounded-xl bg-hospital-50 hover:bg-hospital-100 text-hospital-800 border border-hospital-200 font-bold text-center transition-colors">
+                                ⇄ Transférer / Sortie
+                            </a>
+                        </div>
+                        <a id="drawerDpiLink" href="#" class="block w-full py-2.5 px-3 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-center transition-colors">
+                            Ouvrir le Dossier Patient (DPI) &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end cockpit-subcard">
+                <button type="button" onclick="closeBedDrawer()" class="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold hover:bg-slate-700">
+                    Fermer le panneau
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-2">
             <div>
-                SIH Hospitalier Sécurisé &bull; Version 2.4 HDS Compliant &bull; Développé en Python &amp; Django
+                Clinique Sidi Yahia 2 &bull; Cockpit de Supervision Hospitalière HDS / RGPD
             </div>
             <div class="flex items-center space-x-4">
-                <span>Traçabilité d'accès aux DPI active</span>
+                <span>Journalisation d'audit immuable active</span>
                 <span>&bull;</span>
-                <span class="text-hospital-600 font-medium">Session sécurisée</span>
+                <span class="text-hospital-600 font-semibold">Session sécurisée</span>
             </div>
         </div>
     </footer>
 
+    <!-- =================================================================== -->
+    <!-- SCRIPTS INTERACTIFS DU COCKPIT (ONGLETS, FILTRES, DRAWER, MODE NUIT)-->
+    <!-- =================================================================== -->
+    <script>
+        // 1. Navigation par onglets sans rechargement
+        function switchCockpitTab(tabName) {
+            const sections = {
+                beds: document.getElementById('cockpitSection-beds'),
+                kanban: document.getElementById('cockpitSection-kanban'),
+                planning: document.getElementById('cockpitSection-planning'),
+            };
+            Object.keys(sections).forEach(k => {
+                if (tabName === 'all' || tabName === k) {
+                    sections[k].classList.remove('hidden');
+                } else {
+                    sections[k].classList.add('hidden');
+                }
+            });
+            document.querySelectorAll('.cockpit-tab-btn').forEach(btn => {
+                btn.className = 'cockpit-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all';
+            });
+            const activeBtn = document.getElementById('tabBtn-' + tabName);
+            if (activeBtn) {
+                activeBtn.className = 'cockpit-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs transition-all';
+            }
+        }
+
+        // 2. Filtrage instantané des tuiles de lits par statut (DISPONIBLE, OCCUPE, NETTOYAGE, ALL)
+        function filterBedsByStatus(status) {
+            switchCockpitTab('all');
+            document.querySelectorAll('.bed-tile').forEach(tile => {
+                const tileStatus = tile.getAttribute('data-bed-status');
+                if (status === 'ALL' || tileStatus === status) {
+                    tile.classList.remove('hidden');
+                } else {
+                    tile.classList.add('hidden');
+                }
+            });
+        }
+
+        // 3. Recherche instantanée globale (Ctrl+K)
+        function filterCockpitItems(query) {
+            const q = (query || '').toLowerCase().trim();
+            document.querySelectorAll('.bed-tile').forEach(tile => {
+                const text = tile.getAttribute('data-search-text') || '';
+                if (!q || text.includes(q)) {
+                    tile.classList.remove('hidden');
+                } else {
+                    tile.classList.add('hidden');
+                }
+            });
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                const input = document.getElementById('cockpitQuickSearch');
+                if (input) input.focus();
+            }
+        });
+
+        // 4. Tiroir latéral de détail (Slide-Over Drawer)
+        function openBedDrawer(pole, roomBed, patName, ipp, dob, allergies, doctor, reason, admDate, expDis, statusLbl, patId, hospId) {
+            document.getElementById('drawerPole').textContent = pole;
+            document.getElementById('drawerRoomBed').textContent = roomBed;
+            document.getElementById('drawerPatientName').textContent = patName;
+            document.getElementById('drawerPatientIpp').textContent = ipp;
+            document.getElementById('drawerPatientDob').textContent = dob;
+            document.getElementById('drawerAllergies').textContent = allergies;
+            document.getElementById('drawerDoctor').textContent = doctor;
+            document.getElementById('drawerReason').textContent = reason;
+            document.getElementById('drawerAdmDate').textContent = admDate;
+            document.getElementById('drawerExpDischarge').textContent = expDis;
+            document.getElementById('drawerStatusBadge').textContent = statusLbl;
+            document.getElementById('drawerConsentPdfLink').href = '/core/admissions/' + hospId + '/consent-pdf/';
+            document.getElementById('drawerTransferLink').href = '/admin/core/hospitalization/' + hospId + '/change/';
+            document.getElementById('drawerDpiLink').href = '/admin/core/patient/' + patId + '/change/';
+            document.getElementById('bedDetailDrawer').classList.remove('hidden');
+        }
+
+        function closeBedDrawer() {
+            document.getElementById('bedDetailDrawer').classList.add('hidden');
+        }
+
+        // 5. Mode Garde de Nuit (Dark Mode) avec persistance localStorage
+        function applyNightModeState(isDark) {
+            const root = document.getElementById('htmlRoot');
+            const icon = document.getElementById('nightModeIcon');
+            const label = document.getElementById('nightModeLabel');
+            if (isDark) {
+                root.classList.add('dark');
+                if (icon) icon.textContent = '☀️';
+                if (label) label.textContent = 'Mode Jour';
+            } else {
+                root.classList.remove('dark');
+                if (icon) icon.textContent = '🌙';
+                if (label) label.textContent = 'Mode Nuit';
+            }
+        }
+
+        function toggleNightShiftMode() {
+            const isDark = !document.getElementById('htmlRoot').classList.contains('dark');
+            localStorage.setItem('sih_night_mode', isDark ? '1' : '0');
+            applyNightModeState(isDark);
+        }
+
+        if (localStorage.getItem('sih_night_mode') === '1') {
+            applyNightModeState(true);
+        }
+    </script>
 </body>
 </html>

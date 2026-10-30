@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi &amp; Statuts des Patients - Clinique Sidi Yahia 2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="min-h-full flex flex-col text-slate-800 antialiased">
+
+    <!-- Barre de Navigation Supérieure -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center gap-4">
+                <div class="flex items-center space-x-3">
+                    <a href="{% url 'home_dashboard' %}" class="w-11 h-11 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs">
+                        <img src="/static/images/logo_clinique.png" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
+                    </a>
+                    <div>
+                        <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                            Suivi des Patients &amp; Statuts en Temps Réel
+                            <span class="hidden md:inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Traçabilité HDS Active
+                            </span>
+                        </h1>
+                        <p class="text-xs text-slate-500">Clinique Sidi Yahia 2 &bull; Parcours Post-Admission (Admission, Service, Bloc, Réveil, Sortie)</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2.5">
+                    <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs font-bold text-slate-800">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border {{ role_config.badge_class }}">
+                            {{ request.user.get_role_display }}
+                        </span>
+                    </div>
+
+                    {% if is_admin_user %}
+                    <button type="button" onclick="document.getElementById('modalStatusConfig').classList.remove('hidden')" class="inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        Paramétrer Statuts
+                    </button>
+                    {% endif %}
+
+                    <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-semibold rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition-colors">
+                        &larr; Tableau de Bord
+                    </a>
+
+                    <a href="/admin/core/patient/add/" class="inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold bg-hospital-600 text-white hover:bg-hospital-700 transition-colors">
+                        + Nouveau Patient
+                    </a>
+
+                    <a href="{% url 'logout' %}" class="inline-flex items-center px-3 py-2 border border-rose-200 text-xs font-semibold rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors">
+                        Déconnexion
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Messages de notification Flash -->
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between
+                {% if message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full {% if message.tags == 'error' %}bg-rose-500{% else %}bg-emerald-500{% endif %}"></span>
+                    <span>{{ message }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Section 1 : Pastilles de Filtrage Rapide par Statut (1 clic) -->
+        <section class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Filtrage Rapide par Statut Actuel du Patient
+                </h2>
+                {% if selected_status_codes or search_query %}
+                <a href="{% url 'core:patient_list' %}" class="text-xs font-semibold text-rose-600 hover:underline">
+                    ✕ Effacer tous les filtres
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Bouton Tous les patients -->
+                <a href="?{% if search_query %}q={{ search_query }}{% endif %}"
+                   class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all
+                   {% if not selected_status_codes %}bg-slate-900 text-white border-slate-900 shadow-xs{% else %}bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100{% endif %}">
+                    <span>Tous les patients</span>
+                    <span class="px-2 py-0.5 rounded-full text-[11px] {% if not selected_status_codes %}bg-white/20 text-white{% else %}bg-slate-200 text-slate-700{% endif %}">
+                        {{ total_patients_count }}
+                    </span>
+                </a>
+
+                <!-- Pastilles dynamiques pour chaque statut actif -->
+                {% for st in active_statuses %}
+                <a href="?status={{ st.code }}{% if search_query %}&amp;q={{ search_query }}{% endif %}"
+                   class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all
+                   {% if st.code in selected_status_codes %}ring-2 ring-offset-1 ring-slate-800 {{ st.badge_classes }}{% else %}{{ st.badge_classes }} opacity-85 hover:opacity-100{% endif %}">
+                    <span class="w-2 h-2 rounded-full {{ st.dot_classes }}"></span>
+                    <span>{{ st.label }}</span>
+                    <span class="px-1.5 py-0.2 rounded-full text-[11px] bg-white/80 text-slate-800 border border-black/5">
+                        {{ st.patient_count }}
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Section 2 : Barre de Recherche Globale & Filtre par Statut Combinés -->
+        <section class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <form method="get" action="{% url 'core:patient_list' %}" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <!-- Recherche globale (Nom, Prénom, IPP) -->
+                <div class="md:col-span-6">
+                    <label for="search_q" class="block text-xs font-semibold text-slate-600 mb-1">
+                        Recherche globale (Nom, Prénom, Nom de naissance, IPP ou NIR)
+                    </label>
+                    <div class="relative">
+                        <input
+                            type="text"
+                            id="search_q"
+                            name="q"
+                            value="{{ search_query }}"
+                            placeholder="Ex: Dubois, Martin, IPP-2026-000001..."
+                            class="w-full rounded-xl border border-slate-300 pl-9 pr-4 py-2.5 text-xs sm:text-sm text-slate-900 focus:border-hospital-600 focus:ring-2 focus:ring-hospital-500/20 focus:outline-none"
+                        >
+                        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Menu déroulant de filtre par Statut -->
+                <div class="md:col-span-4">
+                    <label for="status_filter" class="block text-xs font-semibold text-slate-600 mb-1">
+                        Filtrer par Statut Actuel
+                    </label>
+                    <select
+                        id="status_filter"
+                        name="status"
+                        onchange="this.form.submit()"
+                        class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 bg-white focus:border-hospital-600 focus:ring-2 focus:ring-hospital-500/20 focus:outline-none"
+                    >
+                        <option value="">— Tous les statuts ({{ total_patients_count }}) —</option>
+                        {% for st in active_statuses %}
+                        <option value="{{ st.code }}" {% if st.code in selected_status_codes %}selected{% endif %}>
+                            ● {{ st.label }} ({{ st.patient_count }} patient{{ st.patient_count|pluralize }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="md:col-span-2 flex items-center gap-2">
+                    <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white font-semibold text-xs sm:text-sm transition-colors">
+                        Rechercher
+                    </button>
+                    {% if search_query or selected_status_codes %}
+                    <a href="{% url 'core:patient_list' %}" class="py-2.5 px-3 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-semibold" title="Réinitialiser">
+                        ✕
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </section>
+
+        <!-- Section 3 : Tableau Principal de la Liste des Patients -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50/60">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                        Liste des Patients Admis ({{ patients|length }} affiché{{ patients|length|pluralize }})
+                    </h3>
+                    <p class="text-xs text-slate-500">
+                        Modifiez le statut d'un patient directement depuis sa ligne pour mettre à jour son parcours et enregistrer l'audit HDS.
+                    </p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100/80 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                            <th class="py-3.5 px-4">IPP &amp; Patient</th>
+                            <th class="py-3.5 px-4">Naissance &amp; Sexe</th>
+                            <th class="py-3.5 px-4">Groupe &amp; Allergies</th>
+                            <th class="py-3.5 px-4">Statut Actuel</th>
+                            <th class="py-3.5 px-4">Changer le Statut (Temps Réel)</th>
+                            <th class="py-3.5 px-4 text-right">Traçabilité &amp; DPI</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 text-xs">
+                        {% for patient in patients %}
+                        <tr class="hover:bg-slate-50/80 transition-colors">
+                            <!-- IPP & Identité -->
+                            <td class="py-3.5 px-4">
+                                <div class="font-bold text-slate-900 text-sm">
+                                    {{ patient.last_name|upper }} {{ patient.first_name }}
+                                </div>
+                                <div class="text-[11px] font-mono text-hospital-700 font-semibold mt-0.5">
+                                    {{ patient.ipp }}
+                                </div>
+                            </td>
+
+                            <!-- Naissance & Sexe -->
+                            <td class="py-3.5 px-4 text-slate-600">
+                                <div class="font-medium text-slate-800">{{ patient.birth_date|date:"d/m/Y" }}</div>
+                                <div class="text-[11px] text-slate-400">
+                                    Sexe : {{ patient.get_gender_display }}
+                                </div>
+                            </td>
+
+                            <!-- Groupe sanguin & Allergies -->
+                            <td class="py-3.5 px-4">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded font-bold text-[11px] bg-slate-100 text-slate-800 border border-slate-300">
+                                    {{ patient.blood_group }}
+                                </span>
+                                {% if patient.known_allergies and patient.known_allergies != "Aucune" %}
+                                <div class="mt-1 text-[11px] text-rose-600 font-semibold">
+                                    ⚠ Allergie : {{ patient.known_allergies }}
+                                </div>
+                                {% else %}
+                                <div class="mt-1 text-[11px] text-slate-400">Aucune allergie</div>
+                                {% endif %}
+                            </td>
+
+                            <!-- Colonne STATUT ACTUEL (Badge visuel distinctif) -->
+                            <td class="py-3.5 px-4">
+                                {% if patient.current_status %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {{ patient.current_status.badge_classes }}">
+                                    <span class="w-2 h-2 rounded-full {{ patient.current_status.dot_classes }}"></span>
+                                    {{ patient.current_status.label }}
+                                </span>
+                                {% if patient.status_updated_at %}
+                                <div class="text-[10px] text-slate-400 mt-1">
+                                    Mis à jour le {{ patient.status_updated_at|date:"d/m/Y à H:i" }}
+                                </div>
+                                {% endif %}
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                                    Non défini
+                                </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Formulaire de Changement Rapide de Statut en Ligne -->
+                            <td class="py-3.5 px-4">
+                                <form method="post" action="{% url 'core:patient_change_status' patient.pk %}" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <select
+                                        name="new_status_code"
+                                        class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:border-hospital-600 focus:outline-none"
+                                        aria-label="Nouveau statut pour {{ patient.last_name }}"
+                                    >
+                                        {% for st in active_statuses %}
+                                        <option value="{{ st.code }}" {% if patient.current_status and patient.current_status.code == st.code %}selected{% endif %}>
+                                            {{ st.label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <input
+                                        type="text"
+                                        name="comment"
+                                        placeholder="Note / Motif (optionnel)..."
+                                        class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 w-36 focus:border-hospital-600 focus:outline-none"
+                                    >
+                                    <button
+                                        type="submit"
+                                        class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-hospital-600 text-white font-semibold text-xs transition-colors whitespace-nowrap"
+                                    >
+                                        Valider
+                                    </button>
+                                </form>
+                            </td>
+
+                            <!-- Actions : Consentement PDF, Historique des Statuts & Fiche DPI -->
+                            <td class="py-3.5 px-4 text-right whitespace-nowrap space-x-1.5">
+                                <a
+                                    href="{% url 'core:patient_consent_pdf' patient.id %}"
+                                    target="_blank"
+                                    title="Générer le Formulaire de Consentement aux Soins et Décharge (PDF)"
+                                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg border border-sky-800 bg-hospital-900 hover:bg-hospital-800 text-white font-semibold text-xs transition-colors"
+                                >
+                                    📄 Consentement PDF
+                                </a>
+                                <button
+                                    type="button"
+                                    onclick="document.getElementById('historyModal-{{ patient.id }}').classList.remove('hidden')"
+                                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
+                                >
+                                    🕒 Historique ({{ patient.status_history.count }})
+                                </button>
+                                <a
+                                    href="/admin/core/patient/{{ patient.id }}/change/"
+                                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg border border-hospital-200 bg-hospital-50 hover:bg-hospital-100 text-hospital-700 font-semibold text-xs transition-colors"
+                                >
+                                    DPI
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="py-10 px-4 text-center text-slate-400 text-sm">
+                                Aucun patient ne correspond à vos critères de recherche ou de statut.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- =================================================================== -->
+    <!-- MODALES D'HISTORIQUE DES CHANGEMENTS DE STATUT PAR PATIENT          -->
+    <!-- =================================================================== -->
+    {% for patient in patients %}
+    <div id="historyModal-{{ patient.id }}" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-2xl w-full overflow-hidden">
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold">
+                        Historique des Statuts — {{ patient.last_name|upper }} {{ patient.first_name }}
+                    </h3>
+                    <p class="text-xs text-slate-400 font-mono">{{ patient.ipp }} &bull; Journal d'Audit HDS Immuable</p>
+                </div>
+                <button type="button" onclick="document.getElementById('historyModal-{{ patient.id }}').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">
+                    ✕
+                </button>
+            </div>
+
+            <div class="p-6 max-h-[65vh] overflow-y-auto space-y-3">
+                {% for item in patient.status_history.all %}
+                <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            {% if item.old_status %}
+                            <span class="px-2.5 py-0.5 rounded-full font-semibold border {{ item.old_status.badge_classes }}">
+                                {{ item.old_status.label }}
+                            </span>
+                            <span class="text-slate-400 font-bold">&rarr;</span>
+                            {% else %}
+                            <span class="text-slate-400 italic">Initialisation &rarr;</span>
+                            {% endif %}
+                            <span class="px-2.5 py-0.5 rounded-full font-bold border {{ item.new_status.badge_classes }}">
+                                ● {{ item.new_status.label }}
+                            </span>
+                        </div>
+                        {% if item.comment %}
+                        <p class="text-slate-600 italic">« {{ item.comment }} »</p>
+                        {% endif %}
+                    </div>
+                    <div class="text-right text-[11px] text-slate-500 shrink-0">
+                        <div class="font-bold text-slate-800">{{ item.changed_at|date:"d/m/Y à H:i:s" }}</div>
+                        <div>Par : <strong>{{ item.changed_by.get_full_name|default:item.changed_by.username }}</strong> ({{ item.changed_by.get_role_display }})</div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-center text-slate-400 text-xs py-6">
+                    Aucun changement de statut enregistré pour ce patient.
+                </p>
+                {% endfor %}
+            </div>
+
+            <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <button type="button" onclick="document.getElementById('historyModal-{{ patient.id }}').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold hover:bg-slate-700">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- =================================================================== -->
+    <!-- MODALE DE PARAMÉTRAGE GÉNÉRAL DES STATUTS (ADMINISTRATEUR)          -->
+    <!-- =================================================================== -->
+    {% if is_admin_user %}
+    <div id="modalStatusConfig" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-3xl w-full overflow-hidden">
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold">Paramétrage Général des Statuts Patients</h3>
+                    <p class="text-xs text-slate-400">Ajoutez, modifiez ou désactivez dynamiquement les statuts du parcours patient</p>
+                </div>
+                <button type="button" onclick="document.getElementById('modalStatusConfig').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">
+                    ✕
+                </button>
+            </div>
+
+            <div class="p-6 max-h-[75vh] overflow-y-auto space-y-6">
+                <!-- Formulaire d'ajout / modification d'un statut -->
+                <form method="post" action="{% url 'core:status_config_manage' %}" class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700">Ajouter ou Mettre à jour un Statut</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Code unique *</label>
+                            <input type="text" name="code" required placeholder="Ex: IMAGERIE" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs uppercase">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Libellé affiché *</label>
+                            <input type="text" name="label" required placeholder="Ex: Imagerie / Scanner" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Couleur du Badge</label>
+                            <select name="color_theme" class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs bg-white">
+                                {% for val, lbl in color_choices %}
+                                <option value="{{ val }}">{{ lbl }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Ordre d'affichage</label>
+                            <input type="number" name="display_order" value="8" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs">
+                        </div>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+                        <input type="text" name="description" placeholder="Description fonctionnelle du statut..." class="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs">
+                        <label class="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                            <input type="checkbox" name="is_terminal" class="rounded border-slate-300">
+                            Statut terminal (Fin de séjour)
+                        </label>
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-hospital-600 hover:bg-hospital-700 text-white text-xs font-bold">
+                            + Enregistrer le Statut
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Liste des statuts existants avec bouton Activer / Désactiver -->
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Statuts Configurés ({{ all_statuses|length }})</h4>
+                    <div class="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden text-xs">
+                        {% for st in all_statuses %}
+                        <div class="p-3 bg-white flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <span class="text-slate-400 font-mono w-6">#{{ st.display_order }}</span>
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold border {{ st.badge_classes }}">
+                                    <span class="w-2 h-2 rounded-full {{ st.dot_classes }}"></span>
+                                    {{ st.label }}
+                                </span>
+                                <span class="font-mono text-[11px] text-slate-400">({{ st.code }})</span>
+                                <span class="text-slate-500 hidden sm:inline">{{ st.description }}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] text-slate-500">{{ st.patient_count }} patient{{ st.patient_count|pluralize }}</span>
+                                <form method="post" action="{% url 'core:status_config_manage' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="toggle">
+                                    <input type="hidden" name="status_id" value="{{ st.id }}">
+                                    {% if st.is_active %}
+                                    <button type="submit" class="px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 font-semibold text-[11px]">
+                                        Désactiver
+                                    </button>
+                                    {% else %}
+                                    <button type="submit" class="px-2.5 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold text-[11px]">
+                                        Réactiver
+                                    </button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</body>
+</html>
+

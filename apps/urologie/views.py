@@ -2,7 +2,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 
-from apps.core.models import UserRole
+from apps.core.models import AuditActionType, SecurityAuditLog, UserRole
 from .models import UrologicalHistory, UrodynamicAssessment, SpecializedInterventionReport
 
 def user_has_urologie_role(user):
@@ -17,10 +17,18 @@ class RoleRequiredMixin(UserPassesTestMixin):
 
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
+        if self.request.user.is_authenticated:
+            SecurityAuditLog.log_action(
+                user=self.request.user,
+                action_type=AuditActionType.ACCESS_DENIED,
+                resource_name="Urologie",
+                details=f"Tentative d'accès refusée (Secret Médical) sur {self.request.path}",
+                ip_address=self.request.META.get("REMOTE_ADDR"),
+            )
         raise PermissionDenied
 
 # UrologicalHistory Views
-class UrologicalHistoryListView(LoginRequiredMixin, ListView):
+class UrologicalHistoryListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
     model = UrologicalHistory
     template_name = "urologie/urologicalhistory_list.html"
     context_object_name = "histories"
@@ -42,7 +50,7 @@ class UrologicalHistoryCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateV
     def get_success_url(self):
         return reverse_lazy("urologie:history_detail", kwargs={"pk": self.object.pk})
 
-class UrologicalHistoryDetailView(LoginRequiredMixin, DetailView):
+class UrologicalHistoryDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     model = UrologicalHistory
     template_name = "urologie/urologicalhistory_detail.html"
     context_object_name = "history"
@@ -61,7 +69,7 @@ class UrologicalHistoryDeleteView(LoginRequiredMixin, RoleRequiredMixin, DeleteV
     success_url = reverse_lazy("urologie:history_list")
 
 # UrodynamicAssessment Views
-class UrodynamicAssessmentListView(LoginRequiredMixin, ListView):
+class UrodynamicAssessmentListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
     model = UrodynamicAssessment
     template_name = "urologie/urodynamicassessment_list.html"
     context_object_name = "assessments"
@@ -83,7 +91,7 @@ class UrodynamicAssessmentCreateView(LoginRequiredMixin, RoleRequiredMixin, Crea
     def get_success_url(self):
         return reverse_lazy("urologie:assessment_detail", kwargs={"pk": self.object.pk})
 
-class UrodynamicAssessmentDetailView(LoginRequiredMixin, DetailView):
+class UrodynamicAssessmentDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     model = UrodynamicAssessment
     template_name = "urologie/urodynamicassessment_detail.html"
     context_object_name = "assessment"
@@ -102,7 +110,7 @@ class UrodynamicAssessmentDeleteView(LoginRequiredMixin, RoleRequiredMixin, Dele
     success_url = reverse_lazy("urologie:assessment_list")
 
 # SpecializedInterventionReport Views
-class SpecializedInterventionReportListView(LoginRequiredMixin, ListView):
+class SpecializedInterventionReportListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
     model = SpecializedInterventionReport
     template_name = "urologie/specializedinterventionreport_list.html"
     context_object_name = "reports"
@@ -124,7 +132,7 @@ class SpecializedInterventionReportCreateView(LoginRequiredMixin, RoleRequiredMi
     def get_success_url(self):
         return reverse_lazy("urologie:intervention_detail", kwargs={"pk": self.object.pk})
 
-class SpecializedInterventionReportDetailView(LoginRequiredMixin, DetailView):
+class SpecializedInterventionReportDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     model = SpecializedInterventionReport
     template_name = "urologie/specializedinterventionreport_detail.html"
     context_object_name = "report"

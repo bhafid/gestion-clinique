@@ -1,0 +1,494 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1420" width="1920" height="1420" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <!-- Ombre portée douce pour les tables -->
+    <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+    <!-- Marqueurs de cardinalité -->
+    <marker id="arrowCore" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#0284c7"/>
+    </marker>
+    <marker id="arrowChir" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#e11d48"/>
+    </marker>
+    <marker id="arrowMat" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#9333ea"/>
+    </marker>
+    <marker id="arrowPed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#059669"/>
+    </marker>
+    <marker id="arrowUro" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+
+  <!-- Fond général -->
+  <rect width="1920" height="1420" fill="#f8fafc"/>
+
+  <!-- En-tête du Diagramme -->
+  <rect x="20" y="16" width="1880" height="72" rx="12" fill="#0f172a"/>
+  <text x="48" y="48" fill="#ffffff" font-size="22" font-weight="bold">SCHÉMA ENTITÉ-ASSOCIATION (ERD) — SIH CLINIQUE SIDI YAHIA 2</text>
+  <text x="48" y="72" fill="#94a3b8" font-size="13">Architecture Relationnelle Complète (21 Tables Métiers • Conformité HDS &amp; RGPD • Contrôle d'Accès Multi-Rôles RBAC)</text>
+
+  <!-- Légende en haut à droite -->
+  <g transform="translate(1150, 30)" font-size="12" font-weight="600">
+    <rect x="0" y="0" width="130" height="28" rx="6" fill="#0284c7"/>
+    <text x="65" y="18" fill="#ffffff" text-anchor="middle">1. Socle Core (8)</text>
+
+    <rect x="140" y="0" width="130" height="28" rx="6" fill="#e11d48"/>
+    <text x="205" y="18" fill="#ffffff" text-anchor="middle">2. Chirurgie (4)</text>
+
+    <rect x="280" y="0" width="130" height="28" rx="6" fill="#9333ea"/>
+    <text x="345" y="18" fill="#ffffff" text-anchor="middle">3. Maternité (4)</text>
+
+    <rect x="420" y="0" width="130" height="28" rx="6" fill="#059669"/>
+    <text x="485" y="18" fill="#ffffff" text-anchor="middle">4. Pédiatrie (2)</text>
+
+    <rect x="560" y="0" width="130" height="28" rx="6" fill="#4f46e5"/>
+    <text x="625" y="18" fill="#ffffff" text-anchor="middle">5. Urologie (3)</text>
+  </g>
+
+  <!-- ===================================================================== -->
+  <!-- ZONES DE MODULES (ARRIÈRE-PLAN)                                       -->
+  <!-- ===================================================================== -->
+  <!-- Zone 1 : Socle Transversal Core -->
+  <rect x="20" y="102" width="1880" height="630" rx="14" fill="#f0f9ff" stroke="#bae6fd" stroke-width="2" stroke-dasharray="6,4"/>
+  <text x="40" y="128" fill="#0369a1" font-size="14" font-weight="bold">MODULE 1 : SOCLE TRANSVERSAL &amp; DOSSIER PATIENT UNIQUE (apps.core — 8 Tables)</text>
+
+  <!-- Zone 2 : Pôle Chirurgie -->
+  <rect x="20" y="750" width="465" height="650" rx="14" fill="#fff1f2" stroke="#fecdd3" stroke-width="2" stroke-dasharray="6,4"/>
+  <text x="38" y="776" fill="#be123c" font-size="14" font-weight="bold">MODULE 2 : PÔLE CHIRURGIE &amp; BLOC (apps.chirurgie)</text>
+
+  <!-- Zone 3 : Pôle Gynécologie & Maternité -->
+  <rect x="500" y="750" width="465" height="650" rx="14" fill="#faf5ff" stroke="#e9d5ff" stroke-width="2" stroke-dasharray="6,4"/>
+  <text x="518" y="776" fill="#7e22ce" font-size="14" font-weight="bold">MODULE 3 : GYNÉCOLOGIE &amp; MATERNITÉ (apps.gynecologie)</text>
+
+  <!-- Zone 4 : Pôle Pédiatrie -->
+  <rect x="980" y="750" width="440" height="650" rx="14" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="2" stroke-dasharray="6,4"/>
+  <text x="998" y="776" fill="#047857" font-size="14" font-weight="bold">MODULE 4 : PÔLE PÉDIATRIE (apps.pediatrie)</text>
+
+  <!-- Zone 5 : Pôle Urologie -->
+  <rect x="1435" y="750" width="465" height="650" rx="14" fill="#eef2ff" stroke="#c7d2fe" stroke-width="2" stroke-dasharray="6,4"/>
+  <text x="1453" y="776" fill="#3730a3" font-size="14" font-weight="bold">MODULE 5 : PÔLE UROLOGIE (apps.urologie)</text>
+
+  <!-- ===================================================================== -->
+  <!-- LIGNES DE RELATIONS (CONNECTEURS)                                     -->
+  <!-- ===================================================================== -->
+  <g fill="none" stroke-width="2">
+    <!-- Relations Core -->
+    <!-- Department -> CustomUser -->
+    <path d="M 330 220 L 420 220" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+    <text x="375" y="213" fill="#0369a1" font-size="11" font-weight="bold" text-anchor="middle">1 ── *</text>
+
+    <!-- Department -> DutyShift -->
+    <path d="M 185 320 L 185 450" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+    <text x="210" y="390" fill="#0369a1" font-size="11" font-weight="bold">1 ── *</text>
+
+    <!-- CustomUser -> DutyShift -->
+    <path d="M 500 380 L 500 415 L 300 415 L 300 450" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+
+    <!-- DutyShift -> ShiftReplacement -->
+    <path d="M 350 560 L 420 560" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+    <text x="385" y="552" fill="#0369a1" font-size="11" font-weight="bold" text-anchor="middle">1 ── *</text>
+
+    <!-- CustomUser -> ShiftReplacement (titulaire & remplaçant) -->
+    <path d="M 600 380 L 600 450" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+    <text x="635" y="420" fill="#0369a1" font-size="11" font-weight="bold">1 ── * (x2)</text>
+
+    <!-- CustomUser -> Appointment -->
+    <path d="M 760 250 L 1220 250" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+    <text x="805" y="242" fill="#0369a1" font-size="11" font-weight="bold">1 ── *</text>
+
+    <!-- Patient -> Appointment -->
+    <path d="M 1140 420 L 1180 420 L 1180 290 L 1220 290" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+    <text x="1165" y="355" fill="#0369a1" font-size="11" font-weight="bold">1 ── *</text>
+
+    <!-- Patient -> Hospitalization -->
+    <path d="M 1140 530 L 1220 530" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+    <text x="1180" y="522" fill="#0369a1" font-size="11" font-weight="bold" text-anchor="middle">1 ── *</text>
+
+    <!-- Department -> Bed -->
+    <path d="M 185 150 L 185 138 L 1720 138 L 1720 165" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+    <text x="1675" y="155" fill="#0369a1" font-size="11" font-weight="bold">1 ── *</text>
+
+    <!-- Bed -> Hospitalization -->
+    <path d="M 1720 355 L 1720 530 L 1540 530" stroke="#0284c7" marker-end="url(#arrowCore)"/>
+    <text x="1630" y="522" fill="#0369a1" font-size="11" font-weight="bold" text-anchor="middle">1 ── *</text>
+
+    <!-- Relations Patient (DPI) vers les 4 Pôles Spécialisés -->
+    <!-- Patient -> Chirurgie -->
+    <path d="M 880 680 L 880 715 L 250 715 L 250 935" stroke="#e11d48" stroke-dasharray="4,2" marker-end="url(#arrowChir)"/>
+    <!-- Patient -> Maternité -->
+    <path d="M 930 680 L 930 795" stroke="#9333ea" stroke-dasharray="4,2" marker-end="url(#arrowMat)"/>
+    <!-- Patient -> Pédiatrie -->
+    <path d="M 1020 680 L 1020 715 L 1200 715 L 1200 795" stroke="#059669" stroke-dasharray="4,2" marker-end="url(#arrowPed)"/>
+    <!-- Patient -> Urologie -->
+    <path d="M 1080 680 L 1080 715 L 1665 715 L 1665 795" stroke="#4f46e5" stroke-dasharray="4,2" marker-end="url(#arrowUro)"/>
+
+    <!-- Relations internes Chirurgie -->
+    <path d="M 250 905 L 250 935" stroke="#e11d48" marker-end="url(#arrowChir)"/>
+    <path d="M 150 1145 L 150 1190" stroke="#e11d48" marker-end="url(#arrowChir)"/>
+    <text x="125" y="1172" fill="#be123c" font-size="10" font-weight="bold">1 ── 1</text>
+    <path d="M 355 1145 L 355 1190" stroke="#e11d48" marker-end="url(#arrowChir)"/>
+    <text x="380" y="1172" fill="#be123c" font-size="10" font-weight="bold">1 ── 1</text>
+
+    <!-- Relations internes Maternité -->
+    <path d="M 730 1195 L 730 1225" stroke="#9333ea" marker-end="url(#arrowMat)"/>
+    <text x="760" y="1215" fill="#7e22ce" font-size="10" font-weight="bold">1 ── *</text>
+  </g>
+
+  <!-- ===================================================================== -->
+  <!-- TABLES DU MODULE 1 : SOCLE TRANSVERSAL (CORE)                         -->
+  <!-- ===================================================================== -->
+
+  <!-- 1.1 Table core_department -->
+  <g transform="translate(40, 150)" filter="url(#cardShadow)">
+    <rect width="290" height="170" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.5"/>
+    <rect width="290" height="32" rx="8" fill="#0284c7"/>
+    <text x="14" y="21" fill="#ffffff" font-size="13" font-weight="bold">core_department (Department)</text>
+    <g font-size="11.5" fill="#334155" transform="translate(14, 52)">
+      <text y="0"><tspan fill="#0284c7" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="20"><tspan fill="#059669" font-weight="bold">UQ</tspan>  code : VARCHAR(20) [CHIR, MAT...]</text>
+      <text y="40">    name : VARCHAR(100)</text>
+      <text y="60">    building : VARCHAR(50)</text>
+      <text y="80">    floor : INTEGER</text>
+      <text y="100">    is_active : BOOLEAN</text>
+    </g>
+  </g>
+
+  <!-- 1.2 Table core_customuser -->
+  <g transform="translate(420, 150)" filter="url(#cardShadow)">
+    <rect width="340" height="230" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="2"/>
+    <rect width="340" height="32" rx="8" fill="#0284c7"/>
+    <text x="14" y="21" fill="#ffffff" font-size="13" font-weight="bold">core_customuser (CustomUser • RBAC)</text>
+    <g font-size="11.5" fill="#334155" transform="translate(14, 52)">
+      <text y="0"><tspan fill="#0284c7" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="20"><tspan fill="#059669" font-weight="bold">UQ</tspan>  username : VARCHAR(150)</text>
+      <text y="40">    password : VARCHAR(128)</text>
+      <text y="60">    first_name, last_name, email : VARCHAR</text>
+      <text y="80"><tspan fill="#d97706" font-weight="bold">RBAC</tspan> role : VARCHAR(20) [6 Rôles Métiers]</text>
+      <text y="100"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  department_id → core_department.id</text>
+      <text y="120">    license_number : VARCHAR(30) [RPPS/ADELI]</text>
+      <text y="140">    phone_number : VARCHAR(20)</text>
+      <text y="160">    is_staff, is_superuser, is_active : BOOL</text>
+    </g>
+  </g>
+
+  <!-- 1.3 Table core_patient (CENTRE PIVOT DPI) -->
+  <g transform="translate(800, 340)" filter="url(#cardShadow)">
+    <rect width="340" height="340" rx="10" fill="#ffffff" stroke="#0369a1" stroke-width="3"/>
+    <rect width="340" height="38" rx="8" fill="#0369a1"/>
+    <text x="16" y="24" fill="#ffffff" font-size="14" font-weight="bold">★ core_patient (Patient — DPI Unique)</text>
+    <g font-size="11.5" fill="#1e293b" transform="translate(16, 58)">
+      <text y="0"><tspan fill="#0284c7" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="21"><tspan fill="#059669" font-weight="bold">UQ</tspan>  ipp : VARCHAR(20) [IPP-YYYY-XXXXXX]</text>
+      <text y="42"><tspan fill="#059669" font-weight="bold">UQ</tspan>  nir : VARCHAR(15) [Clé Modulo 97]</text>
+      <text y="63">    last_name : VARCHAR(100)</text>
+      <text y="84">    first_name : VARCHAR(100)</text>
+      <text y="105">    maiden_name : VARCHAR(100)</text>
+      <text y="126">    birth_date : DATE</text>
+      <text y="147">    gender : CHAR(1) [M, F, I]</text>
+      <text y="168">    blood_group : VARCHAR(4) [A+, O+, AB-...]</text>
+      <text y="189">    known_allergies : TEXT</text>
+      <text y="210">    major_medical_history : TEXT</text>
+      <text y="231">    ongoing_treatments : TEXT</text>
+      <text y="252">    trusted_person_name, phone : VARCHAR</text>
+      <text y="273">    created_at, updated_at : DATETIME</text>
+    </g>
+  </g>
+
+  <!-- 1.4 Table core_dutyshift -->
+  <g transform="translate(40, 450)" filter="url(#cardShadow)">
+    <rect width="310" height="210" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.5"/>
+    <rect width="310" height="32" rx="8" fill="#0284c7"/>
+    <text x="14" y="21" fill="#ffffff" font-size="13" font-weight="bold">core_dutyshift (DutyShift)</text>
+    <g font-size="11.5" fill="#334155" transform="translate(14, 52)">
+      <text y="0"><tspan fill="#0284c7" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="22"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  staff_member_id → core_customuser.id</text>
+      <text y="44"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  department_id → core_department.id</text>
+      <text y="66">    shift_date : DATE (Anti-chevauchement)</text>
+      <text y="88">    shift_type : VARCHAR(20) [JOUR/NUIT/24H]</text>
+      <text y="110">    start_time, end_time : TIME</text>
+      <text y="132">    is_cancelled : BOOLEAN</text>
+    </g>
+  </g>
+
+  <!-- 1.5 Table core_shiftreplacement -->
+  <g transform="translate(420, 450)" filter="url(#cardShadow)">
+    <rect width="340" height="210" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.5"/>
+    <rect width="340" height="32" rx="8" fill="#0284c7"/>
+    <text x="14" y="21" fill="#ffffff" font-size="13" font-weight="bold">core_shiftreplacement (ShiftReplacement)</text>
+    <g font-size="11.5" fill="#334155" transform="translate(14, 52)">
+      <text y="0"><tspan fill="#0284c7" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="22"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  duty_shift_id → core_dutyshift.id</text>
+      <text y="44"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  original_caregiver_id → core_customuser</text>
+      <text y="66"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  substitute_caregiver_id → core_customuser</text>
+      <text y="88">    status : VARCHAR(20) [DEMANDE/VALIDE...]</text>
+      <text y="110">    validation_date : DATETIME (NULL)</text>
+      <text y="132">    reason : TEXT [Même département exigé]</text>
+    </g>
+  </g>
+
+  <!-- 1.6 Table core_appointment -->
+  <g transform="translate(1220, 165)" filter="url(#cardShadow)">
+    <rect width="320" height="215" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.5"/>
+    <rect width="320" height="32" rx="8" fill="#0284c7"/>
+    <text x="14" y="21" fill="#ffffff" font-size="13" font-weight="bold">core_appointment (Appointment)</text>
+    <g font-size="11.5" fill="#334155" transform="translate(14, 52)">
+      <text y="0"><tspan fill="#0284c7" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="21"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  patient_id → core_patient.id</text>
+      <text y="42"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  practitioner_id → core_customuser.id</text>
+      <text y="63"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  department_id → core_department.id</text>
+      <text y="84">    start_datetime : DATETIME</text>
+      <text y="105">    end_datetime : DATETIME (Anti-collision)</text>
+      <text y="126">    reason : VARCHAR(200)</text>
+      <text y="147">    status : VARCHAR(20), clinical_notes : TEXT</text>
+    </g>
+  </g>
+
+  <!-- 1.7 Table core_bed -->
+  <g transform="translate(1580, 165)" filter="url(#cardShadow)">
+    <rect width="300" height="190" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.5"/>
+    <rect width="300" height="32" rx="8" fill="#0284c7"/>
+    <text x="14" y="21" fill="#ffffff" font-size="13" font-weight="bold">core_bed (Bed — Lits)</text>
+    <g font-size="11.5" fill="#334155" transform="translate(14, 52)">
+      <text y="0"><tspan fill="#0284c7" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="22"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  service_id → core_department.id</text>
+      <text y="44"><tspan fill="#059669" font-weight="bold">UQ</tspan>  room_number : VARCHAR(20)</text>
+      <text y="66"><tspan fill="#059669" font-weight="bold">UQ</tspan>  bed_number : VARCHAR(10)</text>
+      <text y="88">    status : VARCHAR(20)</text>
+      <text y="108" fill="#64748b" font-size="10.5">    [DISPONIBLE, OCCUPE, NETTOYAGE, MAINT.]</text>
+    </g>
+  </g>
+
+  <!-- 1.8 Table core_hospitalization -->
+  <g transform="translate(1220, 435)" filter="url(#cardShadow)">
+    <rect width="320" height="225" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.5"/>
+    <rect width="320" height="32" rx="8" fill="#0284c7"/>
+    <text x="14" y="21" fill="#ffffff" font-size="13" font-weight="bold">core_hospitalization (Hospitalization)</text>
+    <g font-size="11.5" fill="#334155" transform="translate(14, 52)">
+      <text y="0"><tspan fill="#0284c7" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="21"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  patient_id → core_patient.id</text>
+      <text y="42"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  bed_id → core_bed.id</text>
+      <text y="63">    admission_date : DATETIME</text>
+      <text y="84">    expected_discharge_date : DATETIME</text>
+      <text y="105">    actual_discharge_date : DATETIME (NULL)</text>
+      <text y="126">    admission_reason : TEXT</text>
+      <text y="147">    entry_diagnosis : VARCHAR(255)</text>
+      <text y="166">    status : VARCHAR(20) [EN_COURS/CLOTUREE]</text>
+    </g>
+  </g>
+
+  <!-- ===================================================================== -->
+  <!-- TABLES DU MODULE 2 : PÔLE CHIRURGIE & BLOC (apps.chirurgie)           -->
+  <!-- ===================================================================== -->
+
+  <!-- 2.1 OperatingRoom -->
+  <g transform="translate(38, 795)" filter="url(#cardShadow)">
+    <rect width="430" height="110" rx="8" fill="#ffffff" stroke="#e11d48" stroke-width="1.5"/>
+    <rect width="430" height="28" rx="8" fill="#e11d48"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">chirurgie_operatingroom (OperatingRoom)</text>
+    <g font-size="11" fill="#334155" transform="translate(12, 46)">
+      <text y="0"><tspan fill="#e11d48" font-weight="bold">PK</tspan> id : BIGINT   •   <tspan fill="#059669" font-weight="bold">UQ</tspan> code : VARCHAR(20)   •   name : VARCHAR(100)</text>
+      <text y="20">is_septic : BOOL   •   is_available : BOOL   •   equipment_summary : TEXT</text>
+    </g>
+  </g>
+
+  <!-- 2.2 SurgicalIntervention -->
+  <g transform="translate(38, 935)" filter="url(#cardShadow)">
+    <rect width="430" height="210" rx="8" fill="#ffffff" stroke="#e11d48" stroke-width="1.5"/>
+    <rect width="430" height="28" rx="8" fill="#e11d48"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">chirurgie_surgicalintervention (SurgicalIntervention)</text>
+    <g font-size="11" fill="#334155" transform="translate(12, 46)">
+      <text y="0"><tspan fill="#e11d48" font-weight="bold">PK</tspan> id : BIGINT</text>
+      <text y="19"><tspan fill="#7c3aed" font-weight="bold">FK</tspan> patient_id → core_patient.id</text>
+      <text y="38"><tspan fill="#7c3aed" font-weight="bold">FK</tspan> operating_room_id → chirurgie_operatingroom.id</text>
+      <text y="57"><tspan fill="#7c3aed" font-weight="bold">FK</tspan> lead_surgeon_id → core_customuser.id</text>
+      <text y="76"><tspan fill="#7c3aed" font-weight="bold">FK</tspan> anesthesiologist_id → core_customuser.id (NULL)</text>
+      <text y="95">scheduled_start, scheduled_end : DATETIME (Anti-collision bloc)</text>
+      <text y="114">procedure_name : VARCHAR(255)   •   surgical_indication : TEXT</text>
+      <text y="133">priority : VARCHAR(25)   •   status : VARCHAR(20)</text>
+    </g>
+  </g>
+
+  <!-- 2.3 SafetyChecklistOMS (1:1) -->
+  <g transform="translate(38, 1190)" filter="url(#cardShadow)">
+    <rect width="208" height="190" rx="8" fill="#ffffff" stroke="#e11d48" stroke-width="1.5"/>
+    <rect width="208" height="28" rx="8" fill="#e11d48"/>
+    <text x="10" y="19" fill="#ffffff" font-size="11.5" font-weight="bold">chirurgie_safetychecklistoms</text>
+    <g font-size="10.5" fill="#334155" transform="translate(10, 45)">
+      <text y="0"><tspan fill="#e11d48" font-weight="bold">PK</tspan> id : BIGINT</text>
+      <text y="19"><tspan fill="#059669" font-weight="bold">1:1</tspan> intervention_id</text>
+      <text y="38">• 6 booléens Sign-In</text>
+      <text y="57">• 6 booléens Time-Out</text>
+      <text y="76">• 4 booléens Sign-Out</text>
+      <text y="95">• signataire par phase</text>
+      <text y="114" font-weight="bold" fill="#be123c">• is_fully_validated : BOOL</text>
+    </g>
+  </g>
+
+  <!-- 2.4 OperativeReport (1:1) -->
+  <g transform="translate(260, 1190)" filter="url(#cardShadow)">
+    <rect width="208" height="190" rx="8" fill="#ffffff" stroke="#e11d48" stroke-width="1.5"/>
+    <rect width="208" height="28" rx="8" fill="#e11d48"/>
+    <text x="10" y="19" fill="#ffffff" font-size="11.5" font-weight="bold">chirurgie_operativereport (CRO)</text>
+    <g font-size="10.5" fill="#334155" transform="translate(10, 45)">
+      <text y="0"><tspan fill="#e11d48" font-weight="bold">PK</tspan> id : BIGINT</text>
+      <text y="19"><tspan fill="#059669" font-weight="bold">1:1</tspan> intervention_id</text>
+      <text y="38"><tspan fill="#7c3aed" font-weight="bold">FK</tspan> author_surgeon_id</text>
+      <text y="57">surgical_approach : VARCHAR</text>
+      <text y="76">findings, procedure_desc : TEXT</text>
+      <text y="95">estimated_blood_loss_ml : INT</text>
+      <text y="114" font-weight="bold" fill="#be123c">implanted_devices_lot_numbers</text>
+    </g>
+  </g>
+
+  <!-- ===================================================================== -->
+  <!-- TABLES DU MODULE 3 : GYNÉCOLOGIE & MATERNITÉ                          -->
+  <!-- ===================================================================== -->
+
+  <!-- 3.1 GynecologicalHistory -->
+  <g transform="translate(518, 795)" filter="url(#cardShadow)">
+    <rect width="430" height="115" rx="8" fill="#ffffff" stroke="#9333ea" stroke-width="1.5"/>
+    <rect width="430" height="28" rx="8" fill="#9333ea"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">gynecologie_maternite_gynecologicalhistory (1:1 Patient)</text>
+    <g font-size="11" fill="#334155" transform="translate(12, 46)">
+      <text y="0"><tspan fill="#9333ea" font-weight="bold">PK</tspan> id : BIGINT   •   <tspan fill="#059669" font-weight="bold">1:1</tspan> patient_id → core_patient.id</text>
+      <text y="20">gravidity (G) : INT   •   parity (P) : INT   •   previous_cesareans : INT</text>
+      <text y="40">miscarriages : INT   •   rhesus_incompatibility_risk : BOOL   •   notes : TEXT</text>
+    </g>
+  </g>
+
+  <!-- 3.2 RoutineConsultation -->
+  <g transform="translate(518, 925)" filter="url(#cardShadow)">
+    <rect width="430" height="120" rx="8" fill="#ffffff" stroke="#9333ea" stroke-width="1.5"/>
+    <rect width="430" height="28" rx="8" fill="#9333ea"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">gynecologie_maternite_routineconsultation</text>
+    <g font-size="11" fill="#334155" transform="translate(12, 46)">
+      <text y="0"><tspan fill="#9333ea" font-weight="bold">PK</tspan> id : BIGINT   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> patient_id   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> practitioner_id</text>
+      <text y="20">consultation_date : DATE   •   reason : VARCHAR(200)   •   uterine_height_cm : DEC</text>
+      <text y="40">cervix_examination : VARCHAR   •   pap_smear_date : DATE   •   conclusion : TEXT</text>
+    </g>
+  </g>
+
+  <!-- 3.3 PregnancyTracking -->
+  <g transform="translate(518, 1060)" filter="url(#cardShadow)">
+    <rect width="430" height="135" rx="8" fill="#ffffff" stroke="#9333ea" stroke-width="1.5"/>
+    <rect width="430" height="28" rx="8" fill="#9333ea"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">gynecologie_maternite_pregnancytracking (Grossesse)</text>
+    <g font-size="11" fill="#334155" transform="translate(12, 46)">
+      <text y="0"><tspan fill="#9333ea" font-weight="bold">PK</tspan> id : BIGINT   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> patient_id → core_patient.id</text>
+      <text y="20">last_menstrual_period (DDR) : DATE   •   estimated_due_date (DPA = DDR+280j)</text>
+      <text y="40">t1_ultrasound_date, t1_nuchal_translucency_mm, t2_date, t3_date</text>
+      <text y="60">risk_factors : TEXT   •   status : VARCHAR(20) [EN_COURS, ACCOUCHEE...]</text>
+    </g>
+  </g>
+
+  <!-- 3.4 DeliveryRegistry -->
+  <g transform="translate(518, 1225)" filter="url(#cardShadow)">
+    <rect width="430" height="155" rx="8" fill="#ffffff" stroke="#9333ea" stroke-width="1.5"/>
+    <rect width="430" height="28" rx="8" fill="#9333ea"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">gynecologie_maternite_deliveryregistry (Accouchement)</text>
+    <g font-size="11" fill="#334155" transform="translate(12, 46)">
+      <text y="0"><tspan fill="#9333ea" font-weight="bold">PK</tspan> id : BIGINT   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> pregnancy_id   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> patient_id</text>
+      <text y="20"><tspan fill="#7c3aed" font-weight="bold">FK</tspan> attending_obstetrician_id   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> midwife_id (Sage-Femme)</text>
+      <text y="40">delivery_datetime : DATETIME   •   delivery_mode : VARCHAR(30)</text>
+      <text y="60">infant_gender : CHAR(1)   •   birth_weight_grams : INT   •   birth_length_cm : DEC</text>
+      <text y="80" font-weight="bold" fill="#7e22ce">apgar_1min (0-10)   •   apgar_5min (0-10)   •   apgar_10min (0-10)</text>
+    </g>
+  </g>
+
+  <!-- ===================================================================== -->
+  <!-- TABLES DU MODULE 4 : PÔLE PÉDIATRIE (apps.pediatrie)                  -->
+  <!-- ===================================================================== -->
+
+  <!-- 4.1 AnthropometricRecord -->
+  <g transform="translate(998, 795)" filter="url(#cardShadow)">
+    <rect width="404" height="240" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+    <rect width="404" height="28" rx="8" fill="#059669"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">pediatrie_anthropometricrecord (Croissance)</text>
+    <g font-size="11.5" fill="#334155" transform="translate(12, 48)">
+      <text y="0"><tspan fill="#059669" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="22"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  patient_id → core_patient.id (Enfant)</text>
+      <text y="44"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  recorded_by_id → core_customuser.id</text>
+      <text y="66">    measurement_date : DATE</text>
+      <text y="88">    age_in_months : INT</text>
+      <text y="110">    weight_kg : DECIMAL(5,2)   •   height_cm : DECIMAL(5,1)</text>
+      <text y="132">    cranial_perimeter_cm : DECIMAL(4,1)</text>
+      <text y="154" font-weight="bold" fill="#047857">    body_mass_index : DECIMAL(4,1) [IMC Auto-calculé]</text>
+      <text y="176">    percentiles_notes : VARCHAR   •   observations : TEXT</text>
+    </g>
+  </g>
+
+  <!-- 4.2 VaccinationRecord -->
+  <g transform="translate(998, 1075)" filter="url(#cardShadow)">
+    <rect width="404" height="295" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+    <rect width="404" height="28" rx="8" fill="#059669"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">pediatrie_vaccinationrecord (Calendrier Vaccinal)</text>
+    <g font-size="11.5" fill="#334155" transform="translate(12, 48)">
+      <text y="0"><tspan fill="#059669" font-weight="bold">PK</tspan>  id : BIGINT</text>
+      <text y="22"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  patient_id → core_patient.id (Enfant)</text>
+      <text y="44"><tspan fill="#7c3aed" font-weight="bold">FK</tspan>  administering_doctor_id → core_customuser.id</text>
+      <text y="66">    vaccine_name : VARCHAR(150)</text>
+      <text y="88">    target_age_months : INT</text>
+      <text y="110">    recommended_due_date : DATE</text>
+      <text y="132">    administration_date : DATE (NULL)</text>
+      <text y="154" font-weight="bold" fill="#047857">    batch_number : VARCHAR(50) [Lot Obligatoire HDS]</text>
+      <text y="176">    injection_site : VARCHAR(60)</text>
+      <text y="198">    status : VARCHAR(25) [A_FAIRE, EFFECTUE, EN_RETARD]</text>
+      <text y="220">    adverse_reactions : TEXT</text>
+    </g>
+  </g>
+
+  <!-- ===================================================================== -->
+  <!-- TABLES DU MODULE 5 : PÔLE UROLOGIE (apps.urologie)                    -->
+  <!-- ===================================================================== -->
+
+  <!-- 5.1 UrologicalHistory -->
+  <g transform="translate(1453, 795)" filter="url(#cardShadow)">
+    <rect width="430" height="165" rx="8" fill="#ffffff" stroke="#4f46e5" stroke-width="1.5"/>
+    <rect width="430" height="28" rx="8" fill="#4f46e5"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">urologie_urologicalhistory (1:1 Patient)</text>
+    <g font-size="11" fill="#334155" transform="translate(12, 46)">
+      <text y="0"><tspan fill="#4f46e5" font-weight="bold">PK</tspan> id : BIGINT   •   <tspan fill="#059669" font-weight="bold">1:1</tspan> patient_id → core_patient.id</text>
+      <text y="21">has_urolithiasis_history : BOOL   •   stone_composition : VARCHAR(100)</text>
+      <text y="42">has_bph : BOOL   •   prostate_volume_cc : DECIMAL(5,1)</text>
+      <text y="63">macroscopic_hematuria : BOOL   •   recurrent_uti : BOOL</text>
+      <text y="84">urinary_incontinence : VARCHAR(80)</text>
+      <text y="105">baseline_creatinine_micromol_l : DEC   •   baseline_egfr_ml_min : DEC</text>
+    </g>
+  </g>
+
+  <!-- 5.2 UrodynamicAssessment -->
+  <g transform="translate(1453, 980)" filter="url(#cardShadow)">
+    <rect width="430" height="185" rx="8" fill="#ffffff" stroke="#4f46e5" stroke-width="1.5"/>
+    <rect width="430" height="28" rx="8" fill="#4f46e5"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">urologie_urodynamicassessment (Bilan BUD Chiffré)</text>
+    <g font-size="11" fill="#334155" transform="translate(12, 46)">
+      <text y="0"><tspan fill="#4f46e5" font-weight="bold">PK</tspan> id : BIGINT   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> patient_id   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> urologist_id</text>
+      <text y="21">assessment_date : DATE   •   clinical_indication : VARCHAR(200)</text>
+      <text y="42" font-weight="bold" fill="#3730a3">qmax_flow_rate_ml_s : DECIMAL(4,1)   •   voided_volume_ml : INT</text>
+      <text y="63" font-weight="bold" fill="#3730a3">post_void_residual_ml (RPM) : INT   •   max_cystometric_capacity_ml : INT</text>
+      <text y="84">pdet_qmax_cmh2o : DECIMAL(4,1)   •   compliance_normal : BOOL</text>
+      <text y="105">uninhibited_detrusor_contractions : BOOL</text>
+      <text y="126">conclusion_diagnosis : TEXT</text>
+    </g>
+  </g>
+
+  <!-- 5.3 SpecializedInterventionReport -->
+  <g transform="translate(1453, 1185)" filter="url(#cardShadow)">
+    <rect width="430" height="195" rx="8" fill="#ffffff" stroke="#4f46e5" stroke-width="1.5"/>
+    <rect width="430" height="28" rx="8" fill="#4f46e5"/>
+    <text x="12" y="19" fill="#ffffff" font-size="12" font-weight="bold">urologie_specializedinterventionreport (Actes &amp; Sondes JJ)</text>
+    <g font-size="11" fill="#334155" transform="translate(12, 46)">
+      <text y="0"><tspan fill="#4f46e5" font-weight="bold">PK</tspan> id : BIGINT   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> patient_id   •   <tspan fill="#7c3aed" font-weight="bold">FK</tspan> surgeon_id</text>
+      <text y="21">intervention_date : DATE   •   intervention_type : VARCHAR(35)</text>
+      <text y="42" font-weight="bold" fill="#3730a3">double_j_stent_inserted : BOOL   •   stent_side : [DROITE/GAUCHE/BILAT]</text>
+      <text y="63">stent_removal_scheduled_date : DATE (Suivi ablation JJ)</text>
+      <text y="84">stone_fragmentation_method : VARCHAR(100)   •   stone_size_mm : INT</text>
+      <text y="105">postop_drainage : VARCHAR(100)</text>
+      <text y="126">operative_notes : TEXT</text>
+    </g>
+  </g>
+</svg>
+

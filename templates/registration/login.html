@@ -36,10 +36,8 @@
     <div class="max-w-5xl w-full mx-auto">
         <!-- Header Branding -->
         <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-hospital-700 to-hospital-500 text-white shadow-lg shadow-hospital-500/30 mb-3">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                </svg>
+            <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white border border-slate-200 shadow-md p-2 mb-3">
+                <img src="/static/images/logo_clinique.png" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
             </div>
             <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                 Clinique Sidi Yahia 2
@@ -58,6 +56,15 @@
             <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                 <h2 class="text-lg font-bold text-slate-900 mb-1">Identification du Personnel</h2>
                 <p class="text-xs text-slate-500 mb-6">Veuillez saisir vos identifiants professionnels pour accéder à votre espace métier.</p>
+
+                {% if request.GET.timeout %}
+                <div class="mb-5 p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-800 font-semibold flex items-start gap-2">
+                    <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Sécurité HDS / RGPD : Votre session a expiré automatiquement après 5 minutes d'inactivité. Veuillez vous reconnecter.</span>
+                </div>
+                {% endif %}
 
                 {% if form.errors %}
                 <div class="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium flex items-start gap-2">
@@ -125,7 +132,7 @@
                 <div class="flex items-center justify-between mb-2">
                     <h2 class="text-base font-bold text-slate-900">Profils &amp; Rôles Hospitaliers (RBAC)</h2>
                     <span class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-hospital-50 text-hospital-700 border border-hospital-200">
-                        6 Rôles Configurés
+                        7 Rôles Configurés
                     </span>
                 </div>
                 <p class="text-xs text-slate-500 mb-4">
@@ -191,6 +198,16 @@
                         </div>
                         <p class="text-xs font-bold text-slate-900 mt-1.5">Nadia Benali (Accueil)</p>
                         <p class="text-[11px] text-slate-500 mt-0.5">Création DPI Patients, planification des RDV &amp; Admissions.</p>
+                    </button>
+
+                    <!-- 7. Gestionnaire des Admissions et Hospitalisations -->
+                    <button type="button" onclick="fillAccount('adm_karim', 'HospitalPass123!')" class="sm:col-span-2 text-left p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/20 hover:border-indigo-400 hover:bg-indigo-50/60 transition-all group">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-indigo-100 text-indigo-800">Gestionnaire des Admissions et Hospitalisations</span>
+                            <span class="text-[11px] font-mono text-slate-500 group-hover:text-indigo-700">adm_karim</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-900 mt-1.5">Karim Mansouri (Admissions &amp; Gestion des Lits &bull; Timeout 5 min)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">CRU Dossier administratif &amp; séjours (sans suppression), lecture seule occupation des lits &amp; allergies vitales, secret médical strict &amp; audit immuable.</p>
                     </button>
                 </div>
             </div>

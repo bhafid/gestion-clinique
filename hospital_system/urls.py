@@ -23,6 +23,8 @@ urlpatterns = [
     # Authentification unifiée multi-rôles (aucun accès anonyme)
     path("login/", HospitalLoginView.as_view(), name="login"),
     path("logout/", hospital_logout_view, name="logout"),
+    path("admin/login/", HospitalLoginView.as_view(), name="admin_login"),
+    path("admin/logout/", hospital_logout_view, name="admin_logout"),
 
     # Tableau de bord hebdomadaire (Accueil protégé)
     path("", WeeklyDashboardView.as_view(), name="home_dashboard"),

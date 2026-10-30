@@ -2,27 +2,35 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 
-from apps.core.models import UserRole
+from apps.core.models import AuditActionType, SecurityAuditLog, UserRole
 from .models import SurgicalIntervention, SafetyChecklistOMS, OperativeReport
 
 
 def user_has_chirurgien_or_medecin(user):
     return user.is_authenticated and (
-        user.is_superuser or user.role in [UserRole.ADMIN, UserRole.CHIRURGIEN, UserRole.MEDECIN]
+        user.is_superuser or user.role in [UserRole.ADMIN, UserRole.CHIRURGIEN, UserRole.MEDECIN, UserRole.INFIRMIER]
     )
 
 
 class RoleRequiredMixin(UserPassesTestMixin):
-    """Mixin to restrict access to users with CHIRURGIEN or MEDECIN role."""
+    """Mixin to restrict access to clinical surgical roles and deny administrative roles."""
     def test_func(self):
         return user_has_chirurgien_or_medecin(self.request.user)
 
     def handle_no_permission(self):
         from django.core.exceptions import PermissionDenied
+        if self.request.user.is_authenticated:
+            SecurityAuditLog.log_action(
+                user=self.request.user,
+                action_type=AuditActionType.ACCESS_DENIED,
+                resource_name="Chirurgie / Bloc Opératoire",
+                details=f"Tentative d'accès refusée (Secret Médical) sur {self.request.path}",
+                ip_address=self.request.META.get("REMOTE_ADDR"),
+            )
         raise PermissionDenied
 
 
-class InterventionListView(LoginRequiredMixin, ListView):
+class InterventionListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
     model = SurgicalIntervention
     template_name = "chirurgie/intervention_list.html"
     context_object_name = "interventions"
@@ -56,7 +64,7 @@ class InterventionCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
         return reverse_lazy("chirurgie:checklist_create", kwargs={"intervention_pk": self.object.pk})
 
 
-class InterventionDetailView(LoginRequiredMixin, DetailView):
+class InterventionDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     model = SurgicalIntervention
     template_name = "chirurgie/intervention_detail.html"
     context_object_name = "intervention"
@@ -110,7 +118,7 @@ class ChecklistCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
         return reverse_lazy("chirurgie:checklist_detail", kwargs={"pk": self.object.pk})
 
 
-class ChecklistDetailView(LoginRequiredMixin, DetailView):
+class ChecklistDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     model = SafetyChecklistOMS
     template_name = "chirurgie/checklist_detail.html"
     context_object_name = "checklist"
@@ -137,7 +145,7 @@ class ReportCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
         return reverse_lazy("chirurgie:report_detail", kwargs={"pk": self.object.pk})
 
 
-class ReportDetailView(LoginRequiredMixin, DetailView):
+class ReportDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     model = OperativeReport
     template_name = "chirurgie/report_detail.html"
     context_object_name = "report"
