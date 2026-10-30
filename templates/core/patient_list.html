@@ -33,27 +33,32 @@
 </head>
 <body class="min-h-full flex flex-col text-slate-800 antialiased">
 
-    <!-- Barre de Navigation Supérieure -->
+    <!-- Barre de Navigation Supérieure (Sans coupure ni hauteur fixe) -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16 items-center gap-4">
-                <div class="flex items-center space-x-3">
-                    <a href="{% url 'home_dashboard' %}" class="w-11 h-11 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs">
-                        <img src="/static/images/logo_clinique.png" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+            <div class="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-3.5">
+                <div class="flex items-center gap-3.5 min-w-0">
+                    <a href="{% url 'home_dashboard' %}" class="w-14 h-16 sm:w-16 sm:h-16 rounded-2xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shadow-xs shrink-0 hover:border-hospital-500 transition-colors">
+                        <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
                     </a>
-                    <div>
-                        <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                            Suivi des Patients &amp; Statuts en Temps Réel
-                            <span class="hidden md:inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
+                                Suivi des Patients &amp; Statuts en Temps Réel
+                            </h1>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 Traçabilité HDS Active
                             </span>
-                        </h1>
-                        <p class="text-xs text-slate-500">Clinique Sidi Yahia 2 &bull; Parcours Post-Admission (Admission, Service, Bloc, Réveil, Sortie)</p>
+                        </div>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
+                            Clinique Sidi Yahia 2 &bull; Parcours Post-Admission (Admission, Service, Bloc, Réveil, Sortie)
+                        </p>
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-2.5">
-                    <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 xl:justify-end">
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span class="text-xs font-bold text-slate-800">{{ request.user.get_full_name|default:request.user.username }}</span>
                         <span class="px-2 py-0.5 rounded text-[10px] font-bold border {{ role_config.badge_class }}">
                             {{ request.user.get_role_display }}
@@ -61,7 +66,7 @@
                     </div>
 
                     {% if is_admin_user %}
-                    <button type="button" onclick="document.getElementById('modalStatusConfig').classList.remove('hidden')" class="inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors">
+                    <button type="button" onclick="document.getElementById('modalStatusConfig').classList.remove('hidden')" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -70,15 +75,15 @@
                     </button>
                     {% endif %}
 
-                    <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-semibold rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition-colors">
+                    <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors">
                         &larr; Tableau de Bord
                     </a>
 
-                    <a href="/admin/core/patient/add/" class="inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold bg-hospital-600 text-white hover:bg-hospital-700 transition-colors">
+                    <a href="/admin/core/patient/add/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-semibold bg-hospital-600 text-white hover:bg-hospital-700 transition-colors">
                         + Nouveau Patient
                     </a>
 
-                    <a href="{% url 'logout' %}" class="inline-flex items-center px-3 py-2 border border-rose-200 text-xs font-semibold rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors">
+                    <a href="{% url 'logout' %}" class="inline-flex items-center px-3 py-2 border border-rose-200 text-xs font-semibold rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors">
                         Déconnexion
                     </a>
                 </div>
@@ -86,7 +91,7 @@
         </div>
     </header>
 
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         <!-- Messages de notification Flash -->
         {% if messages %}

@@ -4,12 +4,38 @@ Intègre le Dashboard hebdomadaire, l'interface d'administration personnalisée 
 et l'accès modulaire aux différentes spécialités hospitalières.
 """
 
+from pathlib import Path
+
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.staticfiles import finders
+from django.http import Http404
 from django.urls import include, path, re_path
 from django.views.static import serve
 
 from apps.core.views import HospitalLoginView, WeeklyDashboardView, hospital_logout_view
+
+
+def serve_static_with_fallback(request, path: str):
+    """
+    Sert les fichiers statiques (images, logo, CSS/JS Admin) aussi bien depuis STATIC_ROOT
+    (staticfiles/) que depuis BASE_DIR/static/ ou les répertoires d'applications Django,
+    garantissant l'affichage du logo sur Ubuntu (Gunicorn/Nginx) même avant collectstatic.
+    """
+    static_root_file = Path(settings.STATIC_ROOT) / path
+    if static_root_file.exists() and static_root_file.is_file():
+        return serve(request, path, document_root=settings.STATIC_ROOT)
+
+    static_dir_file = Path(settings.BASE_DIR) / "static" / path
+    if static_dir_file.exists() and static_dir_file.is_file():
+        return serve(request, path, document_root=Path(settings.BASE_DIR) / "static")
+
+    found_path = finders.find(path)
+    if found_path:
+        found_file = Path(found_path)
+        return serve(request, found_file.name, document_root=found_file.parent)
+
+    raise Http404(f"Fichier statique introuvable : {path}")
 
 # -----------------------------------------------------------------------------
 # Personnalisation de l'Administration Hospitalière (Branding & HDS)
@@ -39,7 +65,7 @@ urlpatterns = [
     path("pediatrie/", include("apps.pediatrie.urls", namespace="pediatrie")),
     path("urologie/", include("apps.urologie.urls", namespace="urologie")),
 
-    # Service direct des fichiers statiques (CSS/JS Admin) même via Gunicorn (:8000)
-    re_path(r"^static/(?P<path>.*)$", serve, {"document_root": settings.STATIC_ROOT}),
+    # Service direct des fichiers statiques (Logo, CSS/JS Admin) même via Gunicorn (:8000)
+    re_path(r"^static/(?P<path>.*)$", serve_static_with_fallback),
 ]
 

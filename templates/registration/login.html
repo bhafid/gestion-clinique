@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" class="h-full bg-slate-100">
+<html lang="fr" class="min-h-screen bg-slate-100">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,23 +31,27 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
     </style>
 </head>
-<body class="min-h-full flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 text-slate-800 antialiased">
+<body class="min-h-screen flex flex-col py-6 sm:py-10 px-4 sm:px-6 lg:px-8 text-slate-800 antialiased">
 
     <div class="max-w-5xl w-full mx-auto">
-        <!-- Header Branding -->
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white border border-slate-200 shadow-md p-2 mb-3">
-                <img src="/static/images/logo_clinique.png" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
+        <!-- Header Branding (Complet, jamais coupé en haut de l'écran) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+                <div class="inline-flex items-center justify-center w-20 h-24 rounded-2xl bg-white border border-slate-200 shadow-xs p-2 shrink-0">
+                    <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                        Clinique Sidi Yahia 2
+                    </h1>
+                    <p class="mt-1 text-sm text-slate-600">
+                        Portail Médical Sécurisé (SIH) &bull; Supervision Hospitalière &amp; Gestion des Pôles Cliniques
+                    </p>
+                </div>
             </div>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                Clinique Sidi Yahia 2
-            </h1>
-            <p class="mt-1 text-sm text-slate-600">
-                Portail Médical Sécurisé (SIH) &bull; Authentification Obligatoire Multi-Rôles (RBAC)
-            </p>
-            <div class="mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <div class="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                 <span class="w-2 h-2 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Accès Anonyme Interdit &mdash; Conformité HDS &amp; RGPD
+                Accès Authentifié &mdash; Conformité HDS &amp; RGPD
             </div>
         </div>
 
