@@ -51,14 +51,14 @@
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
         <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
             <div class="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-3.5">
-                <!-- Branding + Titre Complet (Sans coupure ni hauteur fixe) -->
-                <div class="flex items-center gap-3.5 min-w-0">
-                    <a href="{% url 'home_dashboard' %}" class="w-14 h-16 sm:w-16 sm:h-16 rounded-2xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shadow-xs shrink-0 hover:border-hospital-500 transition-colors">
-                        <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
+                <!-- Branding + Titre Complet (Logo agrandi haute visibilité) -->
+                <div class="flex items-center gap-4 sm:gap-5 min-w-0">
+                    <a href="{% url 'home_dashboard' %}" class="w-24 h-28 sm:w-28 sm:h-32 rounded-2xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shadow-sm shrink-0 hover:border-hospital-500 transition-colors">
+                        <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="h-full w-auto object-contain">
                     </a>
                     <div class="min-w-0">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
                                 Clinique Sidi Yahia 2
                             </h1>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-hospital-50 text-hospital-700 border border-hospital-200">
@@ -69,7 +69,7 @@
                                 HDS / RGPD
                             </span>
                         </div>
-                        <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
+                        <p class="text-xs sm:text-sm text-slate-500 mt-1">
                             Cockpit Décisionnel Temps Réel &bull; Gestion des Lits, Flux Patients &amp; Plannings des Équipes
                         </p>
                     </div>

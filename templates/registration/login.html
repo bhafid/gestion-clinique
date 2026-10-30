@@ -34,17 +34,17 @@
 <body class="min-h-screen flex flex-col py-6 sm:py-10 px-4 sm:px-6 lg:px-8 text-slate-800 antialiased">
 
     <div class="max-w-5xl w-full mx-auto">
-        <!-- Header Branding (Complet, jamais coupé en haut de l'écran) -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div class="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-                <div class="inline-flex items-center justify-center w-20 h-24 rounded-2xl bg-white border border-slate-200 shadow-xs p-2 shrink-0">
-                    <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
+        <!-- Header Branding (Complet, jamais coupé en haut de l'écran, logo agrandi) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-5">
+            <div class="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+                <div class="inline-flex items-center justify-center w-28 h-36 sm:w-32 sm:h-40 rounded-2xl bg-white border border-slate-200 shadow-sm p-2 shrink-0">
+                    <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="h-full w-auto object-contain">
                 </div>
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                         Clinique Sidi Yahia 2
                     </h1>
-                    <p class="mt-1 text-sm text-slate-600">
+                    <p class="mt-1.5 text-sm sm:text-base text-slate-600">
                         Portail Médical Sécurisé (SIH) &bull; Supervision Hospitalière &amp; Gestion des Pôles Cliniques
                     </p>
                 </div>
