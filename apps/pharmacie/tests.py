@@ -376,4 +376,39 @@ class PharmacieStockAchatsTests(TestCase):
         exported_rows = parse_excel_or_csv_bytes(export_resp.content, "malades.xlsx")
         self.assertGreaterEqual(len(exported_rows), 2)
 
+    def test_clinic_settings_module(self) -> None:
+        """
+        Vérifie le module de Paramètres de la Clinique (/core/clinic-settings/) :
+        Adresse : 27 chemin Ahmed KARA - Bir Mourad Rais - Alger, Algerie
+        Téléphone : +213 770 79 46 30
+        Email : sidiyahiaclinique2@gmail.com
+        """
+        self.client.force_login(self.user)
+        resp_get = self.client.get("/core/clinic-settings/")
+        self.assertEqual(resp_get.status_code, 200)
+        self.assertContains(resp_get, "27 chemin Ahmed KARA - Bir Mourad Rais - Alger, Algerie")
+        self.assertContains(resp_get, "+213 770 79 46 30")
+        self.assertContains(resp_get, "sidiyahiaclinique2@gmail.com")
+        self.assertContains(resp_get, "SARL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2")
+
+        resp_post = self.client.post(
+            "/core/clinic-settings/",
+            {
+                "nom_clinique": "Clinique Sidi Yahia 2",
+                "raison_sociale": "SARL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2",
+                "type_etablissement": "CLINIQUE_PRIVEE",
+                "forme_juridique": "SARL au capital social de 50 000 000,00 DA",
+                "adresse_complete": "27 chemin Ahmed KARA - Bir Mourad Rais - Alger, Algerie",
+                "wilaya": "16 - Alger",
+                "telephone": "+213 770 79 46 30",
+                "email": "sidiyahiaclinique2@gmail.com",
+                "nif": "002116099123456",
+                "nis": "099916100654321",
+                "rc": "16/00-1048291B21",
+                "article_imposition": "16125849012",
+            },
+        )
+        self.assertEqual(resp_post.status_code, 302)
+
+
 

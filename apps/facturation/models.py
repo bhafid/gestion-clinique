@@ -107,10 +107,15 @@ class StatutBordereauChoices(models.TextChoices):
 # -----------------------------------------------------------------------------
 class EtablissementFiscal(AuditableModel):
     """
-    Paramètres légaux et fiscaux de l'établissement de santé en Algérie
-    (Décret exécutif n° 05-468 : NIF, NIS, RC, AI, adresse, séquence sans rupture).
+    Paramètres généraux, légaux, coordonnées et identifiants fiscaux de la Clinique
+    (Décret exécutif n° 05-468 : Adresse, Téléphone, Email, NIF, NIS, RC, AI, séquence sans rupture).
     """
 
+    nom_clinique = models.CharField(
+        max_length=150,
+        default="Clinique Sidi Yahia 2",
+        verbose_name="Nom usuel de la clinique",
+    )
     raison_sociale = models.CharField(
         max_length=200,
         default="SARL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2",
@@ -123,14 +128,14 @@ class EtablissementFiscal(AuditableModel):
         verbose_name="Régime de l'établissement",
     )
     forme_juridique = models.CharField(
-        max_length=50,
+        max_length=80,
         default="SARL au capital social de 50 000 000,00 DA",
         verbose_name="Forme juridique & Capital social",
     )
     adresse_complete = models.CharField(
         max_length=255,
-        default="Lotissement Sidi Yahia, Hydra / Bir Mourad Raïs, 16035 Alger, Algérie",
-        verbose_name="Adresse fiscale complète",
+        default="27 chemin Ahmed KARA - Bir Mourad Rais - Alger, Algerie",
+        verbose_name="Adresse complète de la clinique",
     )
     wilaya = models.CharField(
         max_length=60,
@@ -139,8 +144,26 @@ class EtablissementFiscal(AuditableModel):
     )
     telephone = models.CharField(
         max_length=40,
-        default="+213 (0) 21 60 88 00",
+        default="+213 770 79 46 30",
         verbose_name="Téléphone officiel",
+    )
+    email = models.EmailField(
+        max_length=150,
+        default="sidiyahiaclinique2@gmail.com",
+        blank=True,
+        verbose_name="Email officiel de la clinique",
+    )
+    site_web = models.CharField(
+        max_length=150,
+        default="",
+        blank=True,
+        verbose_name="Site web (optionnel)",
+    )
+    directeur_etablissement = models.CharField(
+        max_length=150,
+        default="Direction Générale & Médicale",
+        blank=True,
+        verbose_name="Directeur / Gérant de l'établissement",
     )
     # Identifiants fiscaux obligatoires en Algérie
     nif = models.CharField(

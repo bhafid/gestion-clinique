@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="fr" class="min-h-screen bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paramètres de la Clinique — {{ etablissement.nom_clinique }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800 antialiased">
+
+    <!-- En-tête Navigation -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+            <div class="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-3.5">
+                <div class="flex items-center gap-4 sm:gap-5 min-w-0">
+                    <a href="{% url 'home_dashboard' %}" class="w-24 h-28 sm:w-28 sm:h-32 rounded-2xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shadow-sm shrink-0 hover:border-hospital-500 transition-colors">
+                        <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo {{ etablissement.nom_clinique }}" class="h-full w-auto object-contain">
+                    </a>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                                ⚙️ Paramètres Généraux &amp; Coordonnées de la Clinique
+                            </h1>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Synchronisé sur Factures, PDF &amp; Tableaux de Bord
+                            </span>
+                        </div>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                            📍 {{ etablissement.adresse_complete }} &bull; 📞 {{ etablissement.telephone }} &bull; ✉️ {{ etablissement.email }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 xl:justify-end">
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs font-bold text-slate-800">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border {{ role_config.badge_class }}">
+                            {{ request.user.get_role_display }}
+                        </span>
+                    </div>
+
+                    <a href="/facturation/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                        🧾 Facturation
+                    </a>
+
+                    <a href="/pharmacie/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors">
+                        💊 Pharmacie &amp; Stocks
+                    </a>
+
+                    <a href="/core/patients/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-hospital-600 text-white hover:bg-hospital-700 transition-colors">
+                        Suivi Patients
+                    </a>
+
+                    <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors">
+                        &larr; Tableau de Bord
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Messages Flash -->
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-4 rounded-xl border text-xs font-bold flex items-center justify-between
+                {% if message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full {% if message.tags == 'error' %}bg-rose-500{% else %}bg-emerald-500{% endif %}"></span>
+                    <span>{{ message }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- Colonne Gauche (5 cols) : Aperçu Officiel des Coordonnées de la Clinique -->
+            <div class="lg:col-span-5 space-y-5">
+                <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-md space-y-4">
+                    <div class="flex items-center gap-4 border-b border-slate-700 pb-4">
+                        <div class="w-20 h-24 rounded-xl bg-white p-1.5 flex items-center justify-center shrink-0">
+                            <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique" class="h-full w-auto object-contain">
+                        </div>
+                        <div>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 uppercase tracking-wider">
+                                Fiche Officielle Établissement
+                            </span>
+                            <h2 class="text-lg font-extrabold mt-1">{{ etablissement.nom_clinique }}</h2>
+                            <p class="text-xs text-slate-300 font-semibold">{{ etablissement.raison_sociale }}</p>
+                            <p class="text-[11px] text-slate-400">{{ etablissement.forme_juridique }}</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 text-xs">
+                        <div class="p-3.5 rounded-xl bg-slate-800/90 border border-slate-700 space-y-2">
+                            <div class="text-[10px] font-extrabold uppercase tracking-wider text-sky-400">
+                                Coordonnées Officielles de la Clinique
+                            </div>
+                            <div class="flex items-start gap-2.5">
+                                <span>📍</span>
+                                <div>
+                                    <span class="text-slate-400">Adresse :</span>
+                                    <div class="font-bold text-white">{{ etablissement.adresse_complete }}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2.5">
+                                <span>📞</span>
+                                <div>
+                                    <span class="text-slate-400">Téléphone :</span>
+                                    <strong class="text-emerald-300 font-mono ml-1">{{ etablissement.telephone }}</strong>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2.5">
+                                <span>✉️</span>
+                                <div>
+                                    <span class="text-slate-400">Email :</span>
+                                    <strong class="text-sky-300 font-mono ml-1">{{ etablissement.email }}</strong>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2.5">
+                                <span>🏙️</span>
+                                <div>
+                                    <span class="text-slate-400">Wilaya :</span>
+                                    <strong class="text-white ml-1">{{ etablissement.wilaya }}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-3.5 rounded-xl bg-slate-800/90 border border-slate-700 space-y-1.5 font-mono text-[11px]">
+                            <div class="text-[10px] font-sans font-extrabold uppercase tracking-wider text-amber-400 mb-1">
+                                Mentions Légales &amp; Fiscales (Facturation &amp; CNAS)
+                            </div>
+                            <div class="flex justify-between"><span class="text-slate-400">N.I.F :</span> <strong>{{ etablissement.nif }}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-400">N.I.S :</span> <strong>{{ etablissement.nis }}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-400">N° R.C :</span> <strong>{{ etablissement.rc }}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Article d'Imposition (A.I) :</span> <strong>{{ etablissement.article_imposition }}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Agrément CNAS :</span> <strong class="text-teal-300">{{ etablissement.numero_convention_cnas }}</strong></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne Droite (7 cols) : Formulaire Complet de Modification des Paramètres de la Clinique -->
+            <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+                <div class="border-b border-slate-200 pb-4 mb-5">
+                    <h2 class="text-base font-extrabold text-slate-900">
+                        Modifier les Paramètres de la Clinique
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Ces paramètres sont automatiquement répercutés sur l'ensemble des modules (En-têtes, Pieds de page, Factures officielles, Formulaires de Consentement PDF et Bons de commande Pharmacie).
+                    </p>
+                </div>
+
+                <form method="post" action="/core/clinic-settings/" class="space-y-5 text-xs">
+                    {% csrf_token %}
+
+                    <!-- Bloc 1 : Identité & Coordonnées (Adresse, Téléphone, Email) -->
+                    <div class="p-4 rounded-xl bg-sky-50/50 border border-sky-200 space-y-3.5">
+                        <h3 class="text-xs font-extrabold uppercase tracking-wider text-hospital-800">
+                            1. Identité &amp; Coordonnées de Contact (Adresse, Téléphone, Email)
+                        </h3>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Nom usuel de la Clinique *</label>
+                                <input type="text" name="nom_clinique" value="{{ etablissement.nom_clinique }}" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-extrabold text-slate-900">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Raison Sociale Officielle (SARL) *</label>
+                                <input type="text" name="raison_sociale" value="{{ etablissement.raison_sociale }}" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-extrabold text-slate-900">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-hospital-800 mb-1">📍 Adresse Complète de la Clinique *</label>
+                            <input
+                                type="text"
+                                name="adresse_complete"
+                                value="{{ etablissement.adresse_complete }}"
+                                required
+                                placeholder="27 chemin Ahmed KARA - Bir Mourad Rais - Alger, Algerie"
+                                class="w-full rounded-xl border border-hospital-300 bg-white px-3.5 py-2.5 font-bold text-slate-900"
+                            >
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block font-bold text-emerald-800 mb-1">📞 Téléphone Officiel *</label>
+                                <input
+                                    type="text"
+                                    name="telephone"
+                                    value="{{ etablissement.telephone }}"
+                                    required
+                                    placeholder="+213 770 79 46 30"
+                                    class="w-full rounded-xl border border-emerald-300 bg-white px-3 py-2 font-mono font-extrabold text-slate-900"
+                                >
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block font-bold text-hospital-800 mb-1">✉️ Email Officiel de la Clinique *</label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value="{{ etablissement.email }}"
+                                    required
+                                    placeholder="sidiyahiaclinique2@gmail.com"
+                                    class="w-full rounded-xl border border-hospital-300 bg-white px-3 py-2 font-mono font-extrabold text-slate-900"
+                                >
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Wilaya *</label>
+                                <input type="text" name="wilaya" value="{{ etablissement.wilaya }}" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-bold text-slate-900">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Forme Juridique &amp; Capital *</label>
+                                <input type="text" name="forme_juridique" value="{{ etablissement.forme_juridique }}" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-bold text-slate-900">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Direction / Gérance</label>
+                                <input type="text" name="directeur_etablissement" value="{{ etablissement.directeur_etablissement }}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloc 2 : Identifiants Fiscaux & Réglementaires -->
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3.5">
+                        <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                            2. Identifiants Fiscaux, Bancaires &amp; Agrément CNAS
+                        </h3>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Régime de l'Établissement</label>
+                                <select name="type_etablissement" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-bold text-slate-900">
+                                    {% for code, lbl in types_etablissement %}
+                                    <option value="{{ code }}" {% if etablissement.type_etablissement == code %}selected{% endif %}>{{ lbl }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">N° Convention / Agrément CNAS</label>
+                                <input type="text" name="numero_convention_cnas" value="{{ etablissement.numero_convention_cnas }}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono font-bold text-teal-800">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">N.I.F (Identification Fiscale)</label>
+                                <input type="text" name="nif" value="{{ etablissement.nif }}" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono font-bold">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">N.I.S (Identification Statistique)</label>
+                                <input type="text" name="nis" value="{{ etablissement.nis }}" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono font-bold">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">N° Registre de Commerce (R.C)</label>
+                                <input type="text" name="rc" value="{{ etablissement.rc }}" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono font-bold">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Article d'Imposition (A.I)</label>
+                                <input type="text" name="article_imposition" value="{{ etablissement.article_imposition }}" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono font-bold">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block font-bold text-slate-700 mb-1">RIB Bancaire / RIP CCP</label>
+                                <input type="text" name="rib_bancaire" value="{{ etablissement.rib_bancaire }}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 pt-2">
+                        <a href="{% url 'home_dashboard' %}" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50">
+                            Retour au Cockpit
+                        </a>
+                        <button type="submit" class="px-6 py-2.5 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white font-extrabold shadow-sm transition-colors">
+                            💾 Enregistrer les Paramètres de la Clinique
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Pied de page avec les coordonnées officielles -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-2">
+            <div>
+                <strong>{{ CLINIC_INFO.raison_sociale }}</strong> &bull; 📍 {{ CLINIC_INFO.adresse_complete }}
+            </div>
+            <div class="flex items-center gap-3">
+                <span>📞 <strong>{{ CLINIC_INFO.telephone }}</strong></span>
+                <span>&bull;</span>
+                <span>✉️ <strong>{{ CLINIC_INFO.email }}</strong></span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
+

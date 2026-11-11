@@ -1,6 +1,7 @@
 """Routage pour le socle transversal (Core) et Gestion Dynamique des Statuts Patients."""
 from django.urls import path
 from .views import (
+    ClinicSettingsView,
     ExportPatientsExcelView,
     ImportPatientsExcelView,
     PatientListView,
@@ -20,6 +21,7 @@ app_name = "core"
 urlpatterns = [
     path("", WeeklyDashboardView.as_view(), name="weekly_dashboard"),
     path("dashboard/", WeeklyDashboardView.as_view(), name="dashboard"),
+    path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic_settings"),
 
     # Actions rapides Cockpit Supervision (Lits & Remplacements de Garde)
     path("beds/<int:pk>/quick-status/", quick_bed_status_action_view, name="quick_bed_status"),

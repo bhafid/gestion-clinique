@@ -229,9 +229,12 @@ def normalize_admission_data(
     if getattr(patient, "ipp", ""):
         gov_ids.append(f"{patient.ipp}")
 
+    from apps.core.context_processors import get_clinic_parameters_dict
+    clinic_params = get_clinic_parameters_dict()
+
     return {
-        "hospital_name": "CLINIQUE SIDI YAHIA 2",
-        "hospital_subtitle": "Établissement Médico-Chirurgical • Service des Admissions",
+        "hospital_name": clinic_params["raison_sociale"],
+        "hospital_subtitle": f"{clinic_params['adresse_complete']} • Tél: {clinic_params['telephone']} • {clinic_params['email']}",
         "admission_id": adm_id,
         "admission_date": adm_date,
         "patient_name": f"{patient.last_name.upper()} {patient.first_name}".strip(),

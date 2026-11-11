@@ -681,7 +681,7 @@ def initialiser_donnees_demo_facturation_algerie(utilisateur: Any = None) -> Non
     (CNAS, CASNOS, Sonatrach, Alliance Assurances) et deux factures complètes.
     """
     if EtablissementFiscal.objects.exists() and ActeMedicalNGAP.objects.exists():
-        # Garantir la mise à jour automatique vers SARL si l'enregistrement existant mentionnait EURL
+        # Garantir la mise à jour automatique vers SARL et les nouvelles coordonnées officielles si les valeurs de démo initiales étaient présentes
         for etab_existant in EtablissementFiscal.objects.all():
             updated_fields = []
             if "EURL" in etab_existant.raison_sociale:
@@ -690,21 +690,32 @@ def initialiser_donnees_demo_facturation_algerie(utilisateur: Any = None) -> Non
             if "EURL" in etab_existant.forme_juridique:
                 etab_existant.forme_juridique = etab_existant.forme_juridique.replace("EURL", "SARL")
                 updated_fields.append("forme_juridique")
+            if "Lotissement Sidi Yahia" in etab_existant.adresse_complete or not etab_existant.adresse_complete:
+                etab_existant.adresse_complete = "27 chemin Ahmed KARA - Bir Mourad Rais - Alger, Algerie"
+                updated_fields.append("adresse_complete")
+            if etab_existant.telephone in ("+213 (0) 21 60 88 00", "") or not etab_existant.telephone:
+                etab_existant.telephone = "+213 770 79 46 30"
+                updated_fields.append("telephone")
+            if not getattr(etab_existant, "email", ""):
+                etab_existant.email = "sidiyahiaclinique2@gmail.com"
+                updated_fields.append("email")
             if updated_fields:
                 etab_existant.save(update_fields=updated_fields + ["updated_at"])
         return
 
     initialiser_donnees_demo_pharmacie(utilisateur=utilisateur)
 
-    # 1. Identité Fiscale Officielle de la Clinique Sidi Yahia 2 (Alger)
+    # 1. Identité Fiscale & Coordonnées Officielles de la Clinique Sidi Yahia 2 (Alger)
     etab, _ = EtablissementFiscal.objects.get_or_create(
         nif="002116099123456",
         defaults={
+            "nom_clinique": "Clinique Sidi Yahia 2",
             "raison_sociale": "SARL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2",
             "forme_juridique": "SARL au Capital Social de 50 000 000,00 DA",
-            "adresse_complete": "Lotissement Sidi Yahia N° 42, Hydra / Bir Mourad Raïs, 16035 Alger, Algérie",
+            "adresse_complete": "27 chemin Ahmed KARA - Bir Mourad Rais - Alger, Algerie",
             "wilaya": "16 - Alger",
-            "telephone": "+213 (0) 21 60 88 00",
+            "telephone": "+213 770 79 46 30",
+            "email": "sidiyahiaclinique2@gmail.com",
             "nis": "099916100654321",
             "rc": "16/00-1048291B21",
             "article_imposition": "16125849012",

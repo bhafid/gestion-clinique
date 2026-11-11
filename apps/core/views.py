@@ -129,6 +129,7 @@ ROLE_PORTAL_CONFIG: Dict[str, Dict[str, Any]] = {
         "badge_class": "bg-purple-100 text-purple-800 border-purple-200",
         "description": "Supervision intégrale du SIH : Gestion du personnel, Pharmacie (FEFO), Facturation Algérienne (NGAP/CNAS/DGI), tous les pôles cliniques, DPI et lits.",
         "actions": [
+            {"label": "⚙️ Paramètres de la Clinique", "url": "/core/clinic-settings/"},
             {"label": "Suivi & Statuts Patients", "url": "/core/patients/"},
             {"label": "Facturation & Tiers-Payant", "url": "/facturation/"},
             {"label": "Paramétrage Facturation", "url": "/facturation/?tab=fiscalite_dz"},
@@ -1313,6 +1314,98 @@ class ImportPatientsExcelView(LoginRequiredMixin, View):
             + (f", {skipped_count} ligne(s) ignorée(s)." if skipped_count else "."),
         )
         return redirect("/core/patients/")
+
+
+class ClinicSettingsView(LoginRequiredMixin, View):
+    """
+    Module dédié aux Paramètres Généraux, Coordonnées Officielles et Identité Légale de la Clinique :
+    - Nom de la Clinique & Raison Sociale (SARL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2)
+    - Adresse : 27 chemin Ahmed KARA - Bir Mourad Rais - Alger, Algerie
+    - Téléphone : +213 770 79 46 30
+    - Email : sidiyahiaclinique2@gmail.com
+    - Identifiants Fiscaux & Agréments (NIF, NIS, RC, AI, RIB, N° Convention CNAS)
+    """
+
+    template_name = "core/clinic_settings.html"
+
+    def _get_or_init_etablissement(self, user: Any):
+        from apps.facturation.models import EtablissementFiscal
+        from apps.facturation.services import initialiser_donnees_demo_facturation_algerie
+
+        initialiser_donnees_demo_facturation_algerie(utilisateur=user)
+        etab = EtablissementFiscal.objects.first()
+        if not etab:
+            etab = EtablissementFiscal.objects.create(
+                nom_clinique="Clinique Sidi Yahia 2",
+                raison_sociale="SARL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2",
+                forme_juridique="SARL au capital social de 50 000 000,00 DA",
+                adresse_complete="27 chemin Ahmed KARA - Bir Mourad Rais - Alger, Algerie",
+                wilaya="16 - Alger",
+                telephone="+213 770 79 46 30",
+                email="sidiyahiaclinique2@gmail.com",
+            )
+        return etab
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        from apps.facturation.models import TypeEtablissementSanteChoices
+
+        etab = self._get_or_init_etablissement(request.user)
+        user_role = getattr(request.user, "role", UserRole.MEDECIN)
+        role_config = ROLE_PORTAL_CONFIG.get(user_role, ROLE_PORTAL_CONFIG[UserRole.MEDECIN])
+        context = {
+            "etablissement": etab,
+            "types_etablissement": TypeEtablissementSanteChoices.choices,
+            "role_config": role_config,
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        etab = self._get_or_init_etablissement(request.user)
+
+        etab.nom_clinique = request.POST.get("nom_clinique", etab.nom_clinique).strip()
+        etab.raison_sociale = request.POST.get("raison_sociale", etab.raison_sociale).strip()
+        etab.type_etablissement = request.POST.get("type_etablissement", etab.type_etablissement).strip()
+        etab.forme_juridique = request.POST.get("forme_juridique", etab.forme_juridique).strip()
+        etab.adresse_complete = request.POST.get("adresse_complete", etab.adresse_complete).strip()
+        etab.wilaya = request.POST.get("wilaya", etab.wilaya).strip()
+        etab.telephone = request.POST.get("telephone", etab.telephone).strip()
+        etab.email = request.POST.get("email", etab.email).strip()
+        etab.site_web = request.POST.get("site_web", etab.site_web).strip()
+        etab.directeur_etablissement = request.POST.get(
+            "directeur_etablissement", etab.directeur_etablissement
+        ).strip()
+        etab.nif = request.POST.get("nif", etab.nif).strip()
+        etab.nis = request.POST.get("nis", etab.nis).strip()
+        etab.rc = request.POST.get("rc", etab.rc).strip()
+        etab.article_imposition = request.POST.get("article_imposition", etab.article_imposition).strip()
+        etab.rib_bancaire = request.POST.get("rib_bancaire", etab.rib_bancaire).strip()
+        etab.numero_convention_cnas = request.POST.get(
+            "numero_convention_cnas", etab.numero_convention_cnas
+        ).strip()
+        exo_str = request.POST.get("exercice_fiscal_courant", "").strip()
+        if exo_str.isdigit():
+            etab.exercice_fiscal_courant = int(exo_str)
+
+        etab.save()
+
+        SecurityAuditLog.log_action(
+            user=request.user,
+            action_type=AuditActionType.UPDATE,
+            resource_name="Paramètres de la Clinique (EtablissementFiscal)",
+            details=(
+                f"Mise à jour des paramètres de la clinique : {etab.raison_sociale} | "
+                f"Adresse : {etab.adresse_complete} | Tél : {etab.telephone} | Email : {etab.email}"
+            ),
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        messages.success(
+            request,
+            f"Paramètres de la clinique enregistrés avec succès ({etab.nom_clinique} — "
+            f"{etab.adresse_complete} — Tél : {etab.telephone} — Email : {etab.email}).",
+        )
+        return redirect("/core/clinic-settings/")
+
 
 
 

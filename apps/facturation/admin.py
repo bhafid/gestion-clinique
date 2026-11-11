@@ -35,14 +35,13 @@ class PaiementFactureInline(admin.TabularInline):
 @admin.register(EtablissementFiscal)
 class EtablissementFiscalAdmin(admin.ModelAdmin):
     list_display = (
+        "nom_clinique",
         "raison_sociale",
-        "type_etablissement",
+        "adresse_complete",
+        "telephone",
+        "email",
         "nif",
-        "nis",
         "rc",
-        "article_imposition",
-        "exercice_fiscal_courant",
-        "dernier_numero_sequentiel",
     )
 
 

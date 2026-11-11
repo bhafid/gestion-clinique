@@ -487,12 +487,22 @@ class ParametrageFiscalUpdateView(LoginRequiredMixin, View):
             if not etab:
                 etab = EtablissementFiscal()
 
+            if "nom_clinique" in request.POST:
+                etab.nom_clinique = request.POST.get("nom_clinique", etab.nom_clinique).strip()
             etab.raison_sociale = request.POST.get("raison_sociale", etab.raison_sociale).strip()
             etab.type_etablissement = request.POST.get("type_etablissement", etab.type_etablissement).strip()
             etab.forme_juridique = request.POST.get("forme_juridique", etab.forme_juridique).strip()
             etab.adresse_complete = request.POST.get("adresse_complete", etab.adresse_complete).strip()
             etab.wilaya = request.POST.get("wilaya", etab.wilaya).strip()
             etab.telephone = request.POST.get("telephone", etab.telephone).strip()
+            if "email" in request.POST:
+                etab.email = request.POST.get("email", etab.email).strip()
+            if "site_web" in request.POST:
+                etab.site_web = request.POST.get("site_web", etab.site_web).strip()
+            if "directeur_etablissement" in request.POST:
+                etab.directeur_etablissement = request.POST.get(
+                    "directeur_etablissement", etab.directeur_etablissement
+                ).strip()
             etab.nif = request.POST.get("nif", etab.nif).strip()
             etab.nis = request.POST.get("nis", etab.nis).strip()
             etab.rc = request.POST.get("rc", etab.rc).strip()
