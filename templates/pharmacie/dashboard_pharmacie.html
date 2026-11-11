@@ -103,15 +103,15 @@
                         </span>
                     </div>
 
-                    <a href="{% url 'facturation:dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
-                        🧾 Facturation DZ
+                    <a href="/facturation/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                        🧾 Facturation
                     </a>
 
                     <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-bold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors cockpit-card">
                         &larr; Cockpit Supervision
                     </a>
 
-                    <a href="{% url 'core:patient_list' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-hospital-600 text-white hover:bg-hospital-700 transition-colors">
+                    <a href="/core/patients/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-hospital-600 text-white hover:bg-hospital-700 transition-colors">
                         Suivi Patients
                     </a>
 
@@ -280,7 +280,20 @@
                 </button>
             </div>
 
-            <div class="flex items-center gap-2 pr-2">
+            <div class="flex flex-wrap items-center gap-2 pr-2">
+                <a
+                    href="/pharmacie/export/excel/?format=xlsx"
+                    class="px-3.5 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-xs font-extrabold transition-colors"
+                >
+                    📥 Exporter Excel (.xlsx)
+                </a>
+                <button
+                    type="button"
+                    onclick="openFefoModal('', '', '')"
+                    class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs transition-colors"
+                >
+                    🏥 Consommation Médicament Malade (&rarr; Facture)
+                </button>
                 <button
                     type="button"
                     onclick="openFefoModal('', '', '')"
@@ -295,6 +308,52 @@
         <!-- ONGLET 1 : CATALOGUE & ÉTAT DES STOCKS (FEFO + LOTS DÉPLIABLES) -->
         <!-- =============================================================== -->
         <section id="tabPanel-catalogue" class="space-y-4">
+            <!-- Bandeau d'Importation & d'Exportation Excel de la Liste des Médicaments (.xlsx / .csv) -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xs font-extrabold uppercase tracking-wider text-teal-800 flex items-center gap-2">
+                        <span>📊 Importation &amp; Exportation Excel de la Liste des Médicaments (.xlsx / .csv)</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Importez votre fichier Excel de médicaments (Code CIP/EAN13, Nom commercial, DCI, Dosage, Forme, Prix, Seuils et Lot initial FEFO) ou exportez le catalogue complet sous Excel.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <form method="post" action="/pharmacie/import/excel/" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2 bg-teal-50/70 p-2 rounded-xl border border-teal-200">
+                        {% csrf_token %}
+                        <input
+                            type="file"
+                            name="excel_file"
+                            accept=".xlsx,.csv"
+                            required
+                            class="text-xs text-slate-700 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-extrabold file:bg-teal-600 file:text-white hover:file:bg-teal-700"
+                        >
+                        <button type="submit" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-teal-700 text-white text-xs font-extrabold shadow-xs transition-colors">
+                            📤 Importer Fichier Excel
+                        </button>
+                    </form>
+
+                    <a
+                        href="/pharmacie/export/excel/?format=xlsx"
+                        class="inline-flex items-center px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs transition-colors"
+                    >
+                        📥 Exporter Excel (.xlsx)
+                    </a>
+                    <a
+                        href="/pharmacie/export/excel/?format=csv"
+                        class="inline-flex items-center px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-bold transition-colors"
+                    >
+                        📥 CSV
+                    </a>
+                    <a
+                        href="/pharmacie/export/excel/?template=1&amp;format=xlsx"
+                        class="inline-flex items-center px-3 py-2 rounded-xl bg-hospital-50 hover:bg-hospital-100 text-hospital-800 border border-hospital-200 text-xs font-bold transition-colors"
+                    >
+                        📄 Modèle Excel (.xlsx)
+                    </a>
+                </div>
+            </div>
             <!-- Filtres et Recherche -->
             <form method="get" action="/pharmacie/" class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card">
                 <input type="hidden" name="tab" value="catalogue">
@@ -522,7 +581,7 @@
                                                         </td>
                                                         <td class="px-3 py-2.5 text-right">
                                                             {% if lot.statut in 'ACTIF,PROCHE_PEREMPTION,PERIME' %}
-                                                            <form method="post" action="{% url 'pharmacie:lot_quarantine' lot.id %}" class="inline-flex items-center gap-1.5">
+                                                            <form method="post" action="/pharmacie/lot/{{ lot.id }}/quarantine/" class="inline-flex items-center gap-1.5">
                                                                 {% csrf_token %}
                                                                 <select name="nouveau_statut" class="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-800">
                                                                     <option value="QUARANTAINE">Isoler en Quarantaine</option>
@@ -581,7 +640,7 @@
                     </div>
 
                     {% if suggestions_reappro %}
-                    <form method="post" action="{% url 'pharmacie:order_create' %}" class="space-y-4">
+                    <form method="post" action="/pharmacie/orders/create/" class="space-y-4">
                         {% csrf_token %}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 cockpit-subcard">
                             <div>
@@ -748,7 +807,7 @@
                 {% if commandes_en_attente %}
                 <div class="space-y-6 mt-5">
                     {% for cmd in commandes_en_attente %}
-                    <form method="post" action="{% url 'pharmacie:order_receive' cmd.id %}" class="rounded-2xl border border-slate-300 bg-slate-50/50 p-4 cockpit-subcard space-y-4">
+                    <form method="post" action="/pharmacie/orders/{{ cmd.id }}/receive/" class="rounded-2xl border border-slate-300 bg-slate-50/50 p-4 cockpit-subcard space-y-4">
                         {% csrf_token %}
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <div>
@@ -861,7 +920,7 @@
                         </p>
                     </div>
 
-                    <form method="post" action="{% url 'pharmacie:inventory_adjust' %}" class="space-y-3.5">
+                    <form method="post" action="/pharmacie/inventory/adjust/" class="space-y-3.5">
                         {% csrf_token %}
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">
@@ -995,20 +1054,35 @@
     </main>
 
     <!-- =================================================================== -->
-    <!-- MODALE DE SORTIE DE STOCK FEFO (FIRST EXPIRED, FIRST OUT)           -->
+    <!-- MODALE DE SORTIE DE STOCK FEFO & CONSOMMATION MÉDICAMENT MALADE     -->
     <!-- =================================================================== -->
     <div id="fefoDispenseModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-xl cockpit-card space-y-4">
             <div class="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div>
-                    <h3 class="text-base font-extrabold text-slate-900">Sortie de Stock / Dispensation FEFO</h3>
-                    <p class="text-xs text-slate-500">Le système prélève automatiquement sur le lot non périmé ayant la date d'expiration la plus proche.</p>
+                    <h3 class="text-base font-extrabold text-slate-900">🏥 Consommation Médicament Malade / Sortie FEFO</h3>
+                    <p class="text-xs text-slate-500">Prélève sur le lot non périmé ayant la date d'expiration la plus proche (FEFO) et reporte automatiquement le médicament sur la facture du malade.</p>
                 </div>
                 <button type="button" onclick="closeFefoModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
             </div>
 
-            <form method="post" action="{% url 'pharmacie:fefo_dispense' %}" class="space-y-4">
+            <form method="post" action="/pharmacie/fefo-dispense/" class="space-y-4">
                 {% csrf_token %}
+                <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1.5">
+                    <label class="block text-xs font-extrabold text-emerald-900">
+                        👤 Malade / Patient Bénéficiaire (Report automatique sur sa Facture au PPA)
+                    </label>
+                    <select name="patient_id" id="fefoModalPatientSelect" class="w-full rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-slate-900">
+                        <option value="0">-- Dotation Service Interne (Sans imputation sur facture patient) --</option>
+                        {% for pat in patients %}
+                        <option value="{{ pat.id }}">🏥 {{ pat.full_name }} (IPP : {{ pat.ipp }}) — Reporter sur sa Facture</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[11px] text-emerald-800">
+                        Si un malade est sélectionné, la consommation est automatiquement ajoutée à sa facture ouverte (ou ouvre une nouvelle facture) avec calcul TVA 9% et part CNAS/CASNOS.
+                    </p>
+                </div>
+
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Produit Pharmaceutique *</label>
                     <select name="produit_id" id="fefoModalProduitSelect" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-xs font-bold text-slate-900">
@@ -1021,7 +1095,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Quantité à sortir *</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Quantité consommée / à sortir *</label>
                     <input
                         type="number"
                         name="quantite"
@@ -1034,13 +1108,12 @@
 
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">
-                        Motif / Référence d'Ordonnance ou Dotation Service *
+                        Motif / Référence d'Ordonnance ou Dotation Service (optionnel si malade sélectionné)
                     </label>
                     <input
                         type="text"
                         name="motif_reference"
-                        required
-                        placeholder="Ex: Dotation Pôle Chirurgie Bloc 2 / Ordonnance Patient IPP..."
+                        placeholder="Ex: Administration soins post-opératoires / Dotation Bloc 2..."
                         class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900"
                     >
                 </div>
@@ -1050,7 +1123,7 @@
                         Annuler
                     </button>
                     <button type="submit" class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold">
-                        Valider la Sortie FEFO
+                        Valider Sortie FEFO &amp; Reporter sur Facture
                     </button>
                 </div>
             </form>

@@ -73,6 +73,14 @@ class UserRole(models.TextChoices):
         "GESTIONNAIRE_ADMISSION",
         "Gestionnaire des Admissions et Hospitalisations",
     )
+    GESTIONNAIRE_PHARMACIE = (
+        "GESTIONNAIRE_PHARMACIE",
+        "Gestionnaire de la Pharmacie Hospitalière & Achats",
+    )
+    GESTIONNAIRE_FACTURATION = (
+        "GESTIONNAIRE_FACTURATION",
+        "Gestionnaire de la Facturation & Tiers-Payant (CNAS/CASNOS)",
+    )
 
 
 class CustomUser(AbstractUser):
@@ -221,6 +229,34 @@ class CustomUser(AbstractUser):
                 # B. Mouvements et Hospitalisations : CRU sur les séjours, Lecture seule sur l'occupation des lits
                 "view_hospitalization", "add_hospitalization", "change_hospitalization",
                 "view_department", "view_bed",
+            ],
+            UserRole.GESTIONNAIRE_PHARMACIE: [
+                # Gestion complète du Stock Pharmaceutique, Lots FEFO, Achats, Réceptions & Inventaire
+                "view_fournisseur", "add_fournisseur", "change_fournisseur",
+                "view_produitpharmaceutique", "add_produitpharmaceutique", "change_produitpharmaceutique",
+                "view_lotstock", "add_lotstock", "change_lotstock",
+                "view_commandeachat", "add_commandeachat", "change_commandeachat",
+                "view_lignecommandeachat", "add_lignecommandeachat", "change_lignecommandeachat",
+                "view_mouvementstock", "add_mouvementstock",
+                # Lecture des patients & imputation automatique de la consommation médicament sur la facture du malade
+                "view_department", "view_patient", "view_hospitalization",
+                "view_facturepatient", "add_facturepatient", "change_facturepatient",
+                "view_lignefacturepharmacie", "add_lignefacturepharmacie",
+            ],
+            UserRole.GESTIONNAIRE_FACTURATION: [
+                # Gestion complète de la Facturation Hospitalière Algérienne (NGAP, PPA, TVA 9%/19%, Timbre, CNAS/CASNOS)
+                "view_etablissementfiscal", "add_etablissementfiscal", "change_etablissementfiscal",
+                "view_actemedicalngap", "add_actemedicalngap", "change_actemedicalngap",
+                "view_organismetierspayant", "add_organismetierspayant", "change_organismetierspayant",
+                "view_conventionpatientorganisme", "add_conventionpatientorganisme", "change_conventionpatientorganisme",
+                "view_facturepatient", "add_facturepatient", "change_facturepatient",
+                "view_lignefactureacte", "add_lignefactureacte", "change_lignefactureacte",
+                "view_lignefacturepharmacie", "add_lignefacturepharmacie", "change_lignefacturepharmacie",
+                "view_reglementfacture", "add_reglementfacture", "change_reglementfacture",
+                "view_bordereauenvoicaisse", "add_bordereauenvoicaisse", "change_bordereauenvoicaisse",
+                # Consultation Dossier Administratif Patient, Séjours & Catalogue Pharmacie PPA
+                "view_department", "view_patient", "view_hospitalization", "view_bed",
+                "view_produitpharmaceutique", "view_lotstock", "view_mouvementstock",
             ],
         }
 

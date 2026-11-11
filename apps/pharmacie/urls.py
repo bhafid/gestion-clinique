@@ -8,6 +8,8 @@ from apps.pharmacie.views import (
     AjustementInventaireTournantView,
     CreerCommandeDepuisSuggestionsView,
     DispensationFEFOView,
+    ExportMedicamentsExcelView,
+    ImportMedicamentsExcelView,
     PharmacieDashboardView,
     QuarantaineRappelLotView,
     ReceptionLivraisonCommandeView,
@@ -19,6 +21,9 @@ app_name = "pharmacie"
 urlpatterns = [
     # Tableau de bord principal Stock & Achats
     path("", PharmacieDashboardView.as_view(), name="dashboard"),
+    # Export / Import Excel (.xlsx et .csv) de la liste des médicaments
+    path("export/excel/", ExportMedicamentsExcelView.as_view(), name="export_medicaments_excel"),
+    path("import/excel/", ImportMedicamentsExcelView.as_view(), name="import_medicaments_excel"),
     # 1. Sortie de stock FEFO transactionnelle
     path("fefo-dispense/", DispensationFEFOView.as_view(), name="fefo_dispense"),
     # 2. Mise en quarantaine / Retrait rappel de lot / Perte péremption

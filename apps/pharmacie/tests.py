@@ -12,11 +12,13 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.core.models import UserRole
+from apps.core.excel_utils import build_xlsx_bytes, parse_excel_or_csv_bytes
+from apps.core.models import Patient, UserRole
 from apps.pharmacie.models import (
     CategorieProduitChoices,
     CommandeAchat,
@@ -262,4 +264,116 @@ class PharmacieStockAchatsTests(TestCase):
         data = api_resp.json()
         self.assertTrue(data["found"])
         self.assertEqual(data["nom_commercial"], "Paracétamol Hospitalier")
+
+    def test_excel_export_and_import_medicaments(self) -> None:
+        """
+        Vérifie l'exportation Excel (.xlsx) et l'importation Excel (.xlsx)
+        de la liste des médicaments avec création automatique de lot FEFO initial.
+        """
+        self.client.force_login(self.user)
+
+        # 1. Export Excel (.xlsx) de la liste des médicaments
+        export_resp = self.client.get("/pharmacie/export/excel/?format=xlsx")
+        self.assertEqual(export_resp.status_code, 200)
+        self.assertEqual(
+            export_resp["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        exported_rows = parse_excel_or_csv_bytes(export_resp.content, "catalogue.xlsx")
+        self.assertGreaterEqual(len(exported_rows), 1)
+
+        # 2. Importation d'un fichier Excel (.xlsx) contenant un nouveau médicament + lot initial
+        headers = [
+            "Code_CIP_EAN13",
+            "DCI",
+            "Nom_Commercial",
+            "Dosage",
+            "Forme_Galenique",
+            "Categorie",
+            "Prix_Achat_HT",
+            "Prix_Vente_TTC",
+            "Taux_TVA",
+            "Stock_Minimum",
+            "Stock_Maximum",
+            "Quantite_Lot_Initial",
+            "Numero_Lot_Initial",
+            "Date_Peremption_Lot",
+        ]
+        rows = [
+            [
+                "6130099887766",
+                "Azithromycine",
+                "Zithromax DZ 500mg",
+                "500 mg",
+                "Comprimé pelliculé",
+                "MEDICAMENT_REMBOURSABLE",
+                "380.00",
+                "520.00",
+                "9.00",
+                "20",
+                "150",
+                "65",
+                "LOT-AZI-2028",
+                "2028-09-30",
+            ]
+        ]
+        xlsx_bytes = build_xlsx_bytes("Medicaments", headers, rows)
+        upload = SimpleUploadedFile(
+            "import_medicaments.xlsx",
+            xlsx_bytes,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        import_resp = self.client.post("/pharmacie/import/excel/", {"excel_file": upload})
+        self.assertEqual(import_resp.status_code, 302)
+
+        imported_prod = ProduitPharmaceutique.objects.filter(code_cip_ean13="6130099887766").first()
+        self.assertIsNotNone(imported_prod)
+        self.assertEqual(imported_prod.dci, "Azithromycine")
+        self.assertEqual(imported_prod.stock_actuel, 65)
+
+    def test_excel_export_and_import_patients(self) -> None:
+        """
+        Vérifie l'exportation Excel (.xlsx) et l'importation Excel (.xlsx)
+        de la liste des malades (Patients) avec génération automatique de l'IPP et d'un NIR valide.
+        """
+        self.client.force_login(self.user)
+
+        # 1. Importation d'un fichier Excel (.xlsx) avec 2 malades
+        headers = [
+            "Nom",
+            "Prenom",
+            "Date_Naissance",
+            "Sexe",
+            "Groupe_Sanguin",
+            "Telephone",
+            "Wilaya",
+            "Allergies_Connues",
+        ]
+        rows = [
+            ["BOUZIDI", "Yacine", "1979-03-21", "M", "O+", "0551223344", "16 - Alger", "Aucune"],
+            ["ZERROUKI", "Nadia", "1992-07-11", "F", "A-", "0662334455", "09 - Blida", "Aspirine"],
+        ]
+        xlsx_bytes = build_xlsx_bytes("Malades", headers, rows)
+        upload = SimpleUploadedFile(
+            "import_malades.xlsx",
+            xlsx_bytes,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        import_resp = self.client.post("/core/patients/import/excel/", {"excel_file": upload})
+        self.assertEqual(import_resp.status_code, 302)
+
+        p1 = Patient.objects.filter(last_name="BOUZIDI", first_name="Yacine").first()
+        p2 = Patient.objects.filter(last_name="ZERROUKI", first_name="Nadia").first()
+        self.assertIsNotNone(p1)
+        self.assertIsNotNone(p2)
+        self.assertTrue(p1.ipp.startswith("IPP-"))
+        self.assertEqual(len(p1.nir), 15)
+        self.assertEqual(p2.known_allergies, "Aspirine")
+
+        # 2. Exportation Excel (.xlsx) de la liste des malades
+        export_resp = self.client.get("/core/patients/export/excel/?format=xlsx")
+        self.assertEqual(export_resp.status_code, 200)
+        exported_rows = parse_excel_or_csv_bytes(export_resp.content, "malades.xlsx")
+        self.assertGreaterEqual(len(exported_rows), 2)
+
 

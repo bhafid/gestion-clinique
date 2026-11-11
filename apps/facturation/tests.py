@@ -36,6 +36,7 @@ from apps.facturation.services import (
     calculer_droit_timbre_algerie,
     enregistrer_paiement_patient,
     generer_bordereau_tiers_payant,
+    imputer_consommation_medicament_malade,
     valider_et_numeroter_facture,
 )
 from apps.pharmacie.models import (
@@ -244,3 +245,160 @@ class FacturationAlgerienneTests(TestCase):
         self.assertContains(resp, "16/00-1048291B21")  # RC
         self.assertContains(resp, "16125849012")      # AI
         self.assertContains(resp, "FAC-2026-000001")
+
+    def test_roles_gestionnaire_pharmacie_et_facturation(self) -> None:
+        """
+        Vérifie la création et la synchronisation des permissions RBAC pour les 2 nouveaux rôles :
+        - GESTIONNAIRE_PHARMACIE
+        - GESTIONNAIRE_FACTURATION
+        """
+        gest_pharm = User.objects.create_user(
+            username="test_gest_pharmacie",
+            password="StrongPassword123!",
+            role=UserRole.GESTIONNAIRE_PHARMACIE,
+        )
+        gest_pharm.sync_role_permissions()
+        self.assertEqual(gest_pharm.role, UserRole.GESTIONNAIRE_PHARMACIE)
+        self.assertTrue(gest_pharm.is_staff)
+
+        gest_fact = User.objects.create_user(
+            username="test_gest_facturation",
+            password="StrongPassword123!",
+            role=UserRole.GESTIONNAIRE_FACTURATION,
+        )
+        gest_fact.sync_role_permissions()
+        self.assertEqual(gest_fact.role, UserRole.GESTIONNAIRE_FACTURATION)
+        self.assertTrue(gest_fact.is_staff)
+
+    def test_consommation_medicament_malade_report_automatique_facture(self) -> None:
+        """
+        Vérifie que l'imputation d'un médicament à un malade (depuis la Pharmacie ou la Facturation)
+        déstocke automatiquement le lot FEFO et reporte la consommation sur la facture du malade
+        (en créant automatiquement la facture si le malade n'en a pas encore).
+        """
+        produit = ProduitPharmaceutique.objects.create(
+            code_cip_ean13="3400938888881",
+            dci="Paracétamol IV",
+            nom_commercial="Perfalgan Perf",
+            dosage="1g / 100ml",
+            forme_galenique="Flacon",
+            categorie=CategorieProduitChoices.MEDICAMENT_REMBOURSABLE,
+            prix_achat_ht=Decimal("120.00"),
+            prix_vente_ttc=Decimal("150.00"),
+        )
+        lot_proche = LotStock.objects.create(
+            produit=produit,
+            numero_lot="LOT-MALADE-FEFO-1",
+            date_peremption=timezone.localdate() + timedelta(days=45),
+            quantite_disponible=20,
+            statut=StatutLotChoices.PROCHE_PEREMPTION,
+        )
+
+        # Le patient n'a aucune facture au départ : imputer_consommation_medicament_malade
+        # doit créer la facture, rattacher sa convention CNAS (80%), déstocker en FEFO et calculer le TTC.
+        facture, ligne_pharma, facture_creee = imputer_consommation_medicament_malade(
+            patient_id=self.patient.id,
+            produit_id=produit.id,
+            quantite=3,
+            utilisateur=self.chirurgien,
+            tarif_ppa_unitaire_ht_da=Decimal("500.00"),
+        )
+        self.assertTrue(facture_creee)
+        self.assertEqual(facture.patient, self.patient)
+        self.assertEqual(facture.convention, self.convention)
+        lot_proche.refresh_from_db()
+        self.assertEqual(lot_proche.quantite_disponible, 17)
+        self.assertEqual(ligne_pharma.lot_sorti, lot_proche)
+        # 3 * 500 DA HT = 1500 DA HT | TVA 9% = 135 DA | TTC = 1635 DA
+        self.assertEqual(ligne_pharma.montant_ttc_da, Decimal("1635.00"))
+        self.assertEqual(facture.montant_total_ttc_da, Decimal("1635.00"))
+        # CNAS 80% de 1635 DA = 1308.00 DA | Part Patient = 327.00 DA
+        self.assertEqual(facture.part_organisme_tiers_payant_da, Decimal("1308.00"))
+        self.assertEqual(facture.part_patient_ticket_moderateur_da, Decimal("327.00"))
+
+        # Test via l'endpoint POST /pharmacie/fefo-dispense/ avec patient_id sélectionné :
+        # doit se reporter sur la MÊME facture ouverte du malade !
+        self.client.force_login(self.chirurgien)
+        resp = self.client.post(
+            "/pharmacie/fefo-dispense/",
+            {
+                "patient_id": self.patient.id,
+                "produit_id": produit.id,
+                "quantite": 2,
+                "motif_reference": "Administration post-op",
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+        lot_proche.refresh_from_db()
+        self.assertEqual(lot_proche.quantite_disponible, 15)
+        self.assertEqual(facture.lignes_pharmacie.count(), 2)
+
+    def test_parametrage_facturation_fiscal_ngap_et_organisme(self) -> None:
+        """
+        Vérifie les 3 routes de Paramétrage de la Facturation :
+        - POST /facturation/settings/fiscal/
+        - POST /facturation/settings/ngap-save/
+        - POST /facturation/settings/organisme-save/
+        """
+        self.client.force_login(self.chirurgien)
+
+        # 1. Paramétrage Fiscal DGI
+        resp_fisc = self.client.post(
+            "/facturation/settings/fiscal/",
+            {
+                "raison_sociale": "EURL CLINIQUE SIDI YAHIA 2 ALGER",
+                "type_etablissement": "CLINIQUE_PRIVEE",
+                "forme_juridique": "EURL au capital de 80 000 000 DA",
+                "adresse_complete": "Hydra, Alger",
+                "wilaya": "16 - Alger",
+                "telephone": "+213 21 60 88 99",
+                "nif": "002116099888777",
+                "nis": "099916100111222",
+                "rc": "16/00-9999999B21",
+                "article_imposition": "16129999999",
+                "rib_bancaire": "BEA Hydra 00200012",
+                "numero_convention_cnas": "CONV-CNAS-ALGER-2026",
+                "exercice_fiscal_courant": "2026",
+            },
+        )
+        self.assertEqual(resp_fisc.status_code, 302)
+        self.etab.refresh_from_db()
+        self.assertEqual(self.etab.nif, "002116099888777")
+
+        # 2. Paramétrage NGAP & Rétrocession
+        resp_ngap = self.client.post(
+            "/facturation/settings/ngap-save/",
+            {
+                "code_ngap": "KC150",
+                "libelle": "Chirurgie Urologique Endoscopique Majeure",
+                "type_acte": "ACTE_NGAP",
+                "lettre_cle": "KC",
+                "coefficient": "150",
+                "valeur_lettre_cle_cnas_da": "300",
+                "tarif_reference_cnas_da": "45000",
+                "tarif_clinique_ht_da": "95000",
+                "taux_tva": "9.00",
+                "taux_retrocession_praticien_defaut": "65.00",
+                "est_remboursable_cnas": "1",
+            },
+        )
+        self.assertEqual(resp_ngap.status_code, 302)
+        acte = ActeMedicalNGAP.objects.get(code_ngap="KC150")
+        self.assertEqual(acte.tarif_clinique_ht_da, Decimal("95000.00"))
+        self.assertEqual(acte.taux_retrocession_praticien_defaut, Decimal("65.00"))
+
+        # 3. Paramétrage Organisme Tiers-Payant
+        resp_org = self.client.post(
+            "/facturation/settings/organisme-save/",
+            {
+                "code_organisme": "MUT-SONATRACH",
+                "nom": "Convention Entreprise Sonatrach",
+                "type_organisme": "ENTREPRISE_CONVENTIONNEE",
+                "taux_couverture_defaut_pct": "100.00",
+                "base_calcul": "SUR_FRAIS_REELS_CLINIQUE",
+            },
+        )
+        self.assertEqual(resp_org.status_code, 302)
+        org = OrganismeTiersPayant.objects.get(code_organisme="MUT-SONATRACH")
+        self.assertEqual(org.taux_couverture_defaut_pct, Decimal("100.00"))
+

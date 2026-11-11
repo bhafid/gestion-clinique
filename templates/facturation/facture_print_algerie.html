@@ -16,13 +16,28 @@
 <body class="bg-slate-100 py-8 px-4 text-slate-900">
 
     <!-- Barre d'actions écran uniquement -->
-    <div class="max-w-4xl mx-auto mb-4 flex items-center justify-between no-print">
-        <a href="{% url 'facturation:dashboard' %}" class="px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50">
+    <div class="max-w-4xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-2 no-print">
+        <a href="/facturation/" class="px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50">
             &larr; Retour au Cockpit Facturation
         </a>
-        <button onclick="window.print()" class="px-5 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-xs font-extrabold shadow-sm">
-            🖨️ Imprimer / Enregistrer en PDF Réglementaire
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+            <a
+                href="https://wa.me/?text={{ '🏥 Clinique Sidi Yahia 2 — Facture '|add:facture.numero_facture|add:' ('|add:facture.patient.full_name|add:') — Net à payer : '|urlencode }}{{ facture.net_a_payer_patient_da }}%20DA"
+                target="_blank"
+                class="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs"
+            >
+                📲 Partager WhatsApp
+            </a>
+            <a
+                href="mailto:?subject=Facture%20{{ facture.numero_facture|urlencode }}%20-%20{{ etablissement.raison_sociale|urlencode }}&body=Facture%20N%C2%B0%20{{ facture.numero_facture|urlencode }}%20pour%20{{ facture.patient.full_name|urlencode }}%20-%20Net%20%C3%A0%20payer%20:%20{{ facture.net_a_payer_patient_da }}%20DA"
+                class="px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-extrabold shadow-xs"
+            >
+                ✉️ Envoyer par Email
+            </a>
+            <button onclick="window.print()" class="px-5 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-xs font-extrabold shadow-sm">
+                🖨️ Imprimer / Enregistrer en PDF Réglementaire
+            </button>
+        </div>
     </div>
 
     <!-- Feuille A4 de Facture Réglementaire Algérienne -->

@@ -454,6 +454,94 @@ def ajouter_medicament_ppa_a_facture(
     return ligne
 
 
+@transaction.atomic
+def imputer_consommation_medicament_malade(
+    patient_id: int,
+    produit_id: int,
+    quantite: int,
+    utilisateur: Any,
+    facture_id: Optional[int] = None,
+    tarif_ppa_unitaire_ht_da: Optional[Decimal] = None,
+) -> Tuple[FacturePatient, LigneFacturePharmacie, bool]:
+    """
+    Enregistre la consommation d'un médicament pour un malade (depuis la Pharmacie,
+    le Dossier Patient ou la Facturation) et la reporte automatiquement sur sa facture :
+    1. Recherche une facture ouverte du patient (ou crée automatiquement une nouvelle facture
+       en rattachant sa convention CNAS/CASNOS active et son hospitalisation en cours).
+    2. Déstocke le médicament en appliquant strictement la règle FEFO (First Expired, First Out).
+    3. Crée la ligne de facturation pharmaceutique au tarif PPA algérien (TVA 9%/19%, part Caisse/Patient)
+       et recalcule instantanément la facture du malade.
+    """
+    patient = Patient.objects.get(pk=patient_id)
+    facture_creee = False
+    facture: Optional[FacturePatient] = None
+
+    if facture_id:
+        facture = FacturePatient.objects.filter(pk=facture_id, patient=patient).first()
+
+    if not facture:
+        # Chercher en priorité une facture BROUILLON, sinon la dernière facture non soldée du malade
+        facture = (
+            FacturePatient.objects.filter(
+                patient=patient,
+                statut=StatutFactureChoices.BROUILLON,
+            )
+            .order_by("-created_at", "-id")
+            .first()
+        )
+    if not facture:
+        facture = (
+            FacturePatient.objects.filter(
+                patient=patient,
+                statut__in=[
+                    StatutFactureChoices.VALIDEE_EMISE,
+                    StatutFactureChoices.PARTIELLEMENT_PAYEE,
+                ],
+            )
+            .order_by("-created_at", "-id")
+            .first()
+        )
+
+    if not facture:
+        # Rattachement automatique de la convention Tiers-Payant (CNAS/CASNOS) et du séjour actif
+        convention_active = (
+            ConventionPriseEnCharge.objects.filter(patient=patient, est_active=True)
+            .select_related("organisme")
+            .order_by("-id")
+            .first()
+        )
+        hosp_active = (
+            Hospitalization.objects.filter(patient=patient, actual_discharge_date__isnull=True)
+            .order_by("-admission_date")
+            .first()
+        )
+        type_pec = (
+            TypePriseEnChargeFactureChoices.HOSPITALISATION_SEJOUR
+            if hosp_active
+            else TypePriseEnChargeFactureChoices.AMBULATOIRE_CONSULTATION
+        )
+        facture = FacturePatient.objects.create(
+            numero_facture=f"BROUILLON-{uuid.uuid4().hex[:8].upper()}",
+            patient=patient,
+            hospitalisation=hosp_active,
+            type_prise_en_charge=type_pec,
+            convention=convention_active,
+            statut=StatutFactureChoices.BROUILLON,
+            cree_par=utilisateur if getattr(utilisateur, "is_authenticated", False) else None,
+        )
+        facture_creee = True
+
+    ligne = ajouter_medicament_ppa_a_facture(
+        facture_id=facture.id,
+        produit_id=produit_id,
+        quantite=quantite,
+        utilisateur=utilisateur,
+        tarif_ppa_unitaire_ht_da=tarif_ppa_unitaire_ht_da,
+    )
+    facture.refresh_from_db()
+    return facture, ligne, facture_creee
+
+
 # -----------------------------------------------------------------------------
 # 6. Validation Séquentielle Sans Rupture & Encaissement avec Droit de Timbre
 # -----------------------------------------------------------------------------
@@ -593,6 +681,17 @@ def initialiser_donnees_demo_facturation_algerie(utilisateur: Any = None) -> Non
     (CNAS, CASNOS, Sonatrach, Alliance Assurances) et deux factures complètes.
     """
     if EtablissementFiscal.objects.exists() and ActeMedicalNGAP.objects.exists():
+        # Garantir la mise à jour automatique vers SARL si l'enregistrement existant mentionnait EURL
+        for etab_existant in EtablissementFiscal.objects.all():
+            updated_fields = []
+            if "EURL" in etab_existant.raison_sociale:
+                etab_existant.raison_sociale = etab_existant.raison_sociale.replace("EURL", "SARL")
+                updated_fields.append("raison_sociale")
+            if "EURL" in etab_existant.forme_juridique:
+                etab_existant.forme_juridique = etab_existant.forme_juridique.replace("EURL", "SARL")
+                updated_fields.append("forme_juridique")
+            if updated_fields:
+                etab_existant.save(update_fields=updated_fields + ["updated_at"])
         return
 
     initialiser_donnees_demo_pharmacie(utilisateur=utilisateur)
@@ -601,8 +700,8 @@ def initialiser_donnees_demo_facturation_algerie(utilisateur: Any = None) -> Non
     etab, _ = EtablissementFiscal.objects.get_or_create(
         nif="002116099123456",
         defaults={
-            "raison_sociale": "EURL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2",
-            "forme_juridique": "EURL au Capital Social de 50 000 000,00 DA",
+            "raison_sociale": "SARL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2",
+            "forme_juridique": "SARL au Capital Social de 50 000 000,00 DA",
             "adresse_complete": "Lotissement Sidi Yahia N° 42, Hydra / Bir Mourad Raïs, 16035 Alger, Algérie",
             "wilaya": "16 - Alger",
             "telephone": "+213 (0) 21 60 88 00",

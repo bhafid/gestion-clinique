@@ -136,7 +136,7 @@
                 <div class="flex items-center justify-between mb-2">
                     <h2 class="text-base font-bold text-slate-900">Profils &amp; Rôles Hospitaliers (RBAC)</h2>
                     <span class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-hospital-50 text-hospital-700 border border-hospital-200">
-                        7 Rôles Configurés
+                        9 Rôles Configurés
                     </span>
                 </div>
                 <p class="text-xs text-slate-500 mb-4">
@@ -212,6 +212,26 @@
                         </div>
                         <p class="text-xs font-bold text-slate-900 mt-1.5">Karim Mansouri (Admissions &amp; Gestion des Lits &bull; Timeout 5 min)</p>
                         <p class="text-[11px] text-slate-500 mt-0.5">CRU Dossier administratif &amp; séjours (sans suppression), lecture seule occupation des lits &amp; allergies vitales, secret médical strict &amp; audit immuable.</p>
+                    </button>
+
+                    <!-- 8. Gestionnaire de la Pharmacie Hospitalière -->
+                    <button type="button" onclick="fillAccount('pharm_salim', 'HospitalPass123!')" class="text-left p-3.5 rounded-xl border border-teal-200 bg-teal-50/20 hover:border-teal-400 hover:bg-teal-50/60 transition-all group">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-teal-100 text-teal-800">Gestionnaire de la Pharmacie</span>
+                            <span class="text-[11px] font-mono text-slate-500 group-hover:text-teal-700">pharm_salim</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-900 mt-1.5">Dr Salim Boudiaf (Pharmacien Chef)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Stocks FEFO par lots, Consommation médicament malade (&rarr; Facture), Achats, Réception douchette &amp; Inventaire.</p>
+                    </button>
+
+                    <!-- 9. Gestionnaire de la Facturation & Tiers-Payant -->
+                    <button type="button" onclick="fillAccount('fact_amina', 'HospitalPass123!')" class="text-left p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/20 hover:border-emerald-400 hover:bg-emerald-50/60 transition-all group">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-emerald-100 text-emerald-800">Gestionnaire de la Facturation</span>
+                            <span class="text-[11px] font-mono text-slate-500 group-hover:text-emerald-700">fact_amina</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-900 mt-1.5">Amina Khelifi (Facturation &amp; CNAS)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Facturation NGAP &amp; PPA, TVA 9%/19%, Timbre Espèces vs CIB/Edahabia, CNAS/CASNOS &amp; Paramétrage Fiscal DGI.</p>
                     </button>
                 </div>
             </div>

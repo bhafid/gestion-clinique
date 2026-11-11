@@ -17,6 +17,15 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import TemplateView
 
+from apps.core.excel_utils import (
+    build_csv_bytes,
+    build_xlsx_bytes,
+    first_non_empty,
+    parse_excel_or_csv_bytes,
+    parse_flexible_date,
+)
+from apps.core.models import Patient
+from apps.facturation.services import imputer_consommation_medicament_malade
 from apps.pharmacie.models import (
     CategorieProduitChoices,
     CommandeAchat,
@@ -38,6 +47,8 @@ PHARMACIE_ROLE_CONFIG = {
     "SAGE_FEMME": {"badge_class": "bg-pink-100 text-pink-800 border-pink-300"},
     "SECRETAIRE": {"badge_class": "bg-amber-100 text-amber-800 border-amber-300"},
     "GESTIONNAIRE_ADMISSION": {"badge_class": "bg-teal-100 text-teal-800 border-teal-300"},
+    "GESTIONNAIRE_PHARMACIE": {"badge_class": "bg-teal-100 text-teal-800 border-teal-300"},
+    "GESTIONNAIRE_FACTURATION": {"badge_class": "bg-emerald-100 text-emerald-800 border-emerald-300"},
 }
 from apps.pharmacie.services import (
     ajuster_inventaire_tournant,
@@ -167,6 +178,7 @@ class PharmacieDashboardView(LoginRequiredMixin, TemplateView):
                 "produits": produits_filtres,
                 "tous_produits": tous_produits,
                 "tous_lots": tous_lots,
+                "patients": Patient.objects.order_by("last_name", "first_name"),
                 "fournisseurs": Fournisseur.objects.filter(est_actif=True),
                 "suggestions_reappro": suggestions_reappro,
                 "total_suggestions_ht": total_suggestions_ht,
@@ -184,28 +196,52 @@ class DispensationFEFOView(LoginRequiredMixin, View):
     POST /pharmacie/fefo-dispense/
     Exécute une sortie de stock en appliquant strictement l'algorithme FEFO
     (First Expired, First Out) de manière transactionnelle.
+    Si un malade (`patient_id`) est sélectionné, reporte automatiquement la consommation
+    sur la facture du malade au tarif PPA réglementé algérien !
     """
 
     def post(self, request: HttpRequest) -> HttpResponse:
         try:
             produit_id = int(request.POST.get("produit_id", 0))
             quantite = int(request.POST.get("quantite", 0))
+            patient_id = int(request.POST.get("patient_id", "0") or 0)
             motif = request.POST.get("motif_reference", "").strip()
-            mouvements = dispensation_sortie_fefo(
-                produit_id=produit_id,
-                quantite_demandee=quantite,
-                utilisateur=request.user,
-                motif_reference=motif,
-            )
-            lots_touches = ", ".join(
-                f"Lot {m.lot.numero_lot} ({abs(m.quantite)} u., exp. {m.lot.date_peremption.strftime('%d/%m/%Y')})"
-                for m in mouvements
-            )
-            messages.success(
-                request,
-                f"Sortie FEFO validée avec succès : {lots_touches}.",
-            )
-        except (ValidationError, ValueError, ProduitPharmaceutique.DoesNotExist) as exc:
+
+            if patient_id > 0:
+                facture, ligne_pharma, facture_creee = imputer_consommation_medicament_malade(
+                    patient_id=patient_id,
+                    produit_id=produit_id,
+                    quantite=quantite,
+                    utilisateur=request.user,
+                )
+                lot_code = ligne_pharma.lot_sorti.numero_lot if ligne_pharma.lot_sorti else "FEFO"
+                statut_info = "nouvelle facture ouverte" if facture_creee else "facture mise à jour"
+                messages.success(
+                    request,
+                    f"Consommation médicament imputée au malade {facture.patient.full_name} : "
+                    f"{ligne_pharma.quantite} x {ligne_pharma.produit.nom_commercial} (Lot FEFO {lot_code}) "
+                    f"reportée sur la facture {facture.numero_facture} ({statut_info}) — "
+                    f"Ligne TTC : {ligne_pharma.montant_ttc_da} DA (Part Caisse : {ligne_pharma.part_organisme_da} DA | "
+                    f"Part Patient : {ligne_pharma.part_patient_da} DA).",
+                )
+            else:
+                if not motif:
+                    motif = "Dotation service interne / Sortie FEFO"
+                mouvements = dispensation_sortie_fefo(
+                    produit_id=produit_id,
+                    quantite_demandee=quantite,
+                    utilisateur=request.user,
+                    motif_reference=motif,
+                )
+                lots_touches = ", ".join(
+                    f"Lot {m.lot.numero_lot} ({abs(m.quantite)} u., exp. {m.lot.date_peremption.strftime('%d/%m/%Y')})"
+                    for m in mouvements
+                )
+                messages.success(
+                    request,
+                    f"Sortie FEFO validée avec succès : {lots_touches}.",
+                )
+        except (ValidationError, ValueError, ProduitPharmaceutique.DoesNotExist, Patient.DoesNotExist) as exc:
             msg = exc.message if isinstance(exc, ValidationError) and hasattr(exc, "message") else str(exc)
             messages.error(request, f"Erreur lors de la sortie FEFO : {msg}")
         return redirect("/pharmacie/?tab=catalogue")
@@ -433,3 +469,290 @@ def api_scan_code_barres(request: HttpRequest, code_barres: str) -> JsonResponse
             ],
         }
     )
+
+
+class ExportMedicamentsExcelView(LoginRequiredMixin, View):
+    """
+    GET /pharmacie/export/excel/
+    Exporte le catalogue complet des médicaments et de leurs stocks FEFO au format Excel (.xlsx ou .csv).
+    Supporte également ?template=1 pour télécharger un modèle Excel vierge prêt à remplir.
+    """
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        fmt = request.GET.get("format", "xlsx").lower()
+        is_template = request.GET.get("template", "0") == "1"
+
+        headers = [
+            "Code_CIP_EAN13",
+            "Nom_Commercial",
+            "DCI",
+            "Dosage",
+            "Forme_Galenique",
+            "Classe_Therapeutique",
+            "Categorie",
+            "Prix_Achat_HT",
+            "PMP_HT",
+            "Prix_Vente_TTC",
+            "Taux_TVA",
+            "Stock_Minimum",
+            "Stock_Securite",
+            "Stock_Maximum",
+            "Stock_Actuel_FEFO",
+            "Numero_Lot_Initial",
+            "Date_Peremption_Lot",
+            "Rayon_Emplacement",
+            "Fournisseur",
+        ]
+
+        rows: List[List[Any]] = []
+        if is_template:
+            rows.append(
+                [
+                    "3400935955838",
+                    "Perfalgan Injectable",
+                    "Paracétamol",
+                    "10 mg/ml (1g/100ml)",
+                    "Flacon perfusion IV",
+                    "N02BE01 - Analgésique Antipyrétique",
+                    "MEDICAMENT_REMBOURSABLE",
+                    "1.85",
+                    "1.85",
+                    "2.45",
+                    "9.00",
+                    "30",
+                    "15",
+                    "150",
+                    "50",
+                    "LOT-PERF-2027",
+                    (timezone.localdate() + timezone.timedelta(days=365)).strftime("%Y-%m-%d"),
+                    "Armoire Pharmacie Centrale - A1",
+                    "SAIDAL / BIOPHARM",
+                ]
+            )
+        else:
+            produits = (
+                ProduitPharmaceutique.objects.select_related("fournisseur_prefere")
+                .prefetch_related("lots")
+                .all()
+            )
+            for p in produits:
+                premier_lot = p.lots.filter(quantite_disponible__gt=0).order_by("date_peremption").first()
+                rows.append(
+                    [
+                        p.code_cip_ean13,
+                        p.nom_commercial,
+                        p.dci,
+                        p.dosage,
+                        p.forme_galenique,
+                        p.classe_therapeutique,
+                        p.categorie,
+                        str(p.prix_achat_ht),
+                        str(p.prix_moyen_pondere_ht),
+                        str(p.prix_vente_ttc),
+                        str(p.taux_tva),
+                        p.stock_minimum,
+                        p.stock_securite,
+                        p.stock_maximum,
+                        p.stock_actuel,
+                        premier_lot.numero_lot if premier_lot else "",
+                        premier_lot.date_peremption.strftime("%Y-%m-%d") if premier_lot else "",
+                        p.rayon_par_defaut,
+                        p.fournisseur_prefere.nom if p.fournisseur_prefere else "",
+                    ]
+                )
+
+        date_str = timezone.localdate().strftime("%Y%m%d")
+        base_name = "Modele_Import_Medicaments" if is_template else f"Catalogue_Medicaments_Pharmacie_{date_str}"
+
+        if fmt == "csv":
+            data = build_csv_bytes(headers, rows)
+            response = HttpResponse(data, content_type="text/csv; charset=utf-8")
+            response["Content-Disposition"] = f'attachment; filename="{base_name}.csv"'
+            return response
+
+        data = build_xlsx_bytes("Medicaments_Pharmacie", headers, rows)
+        response = HttpResponse(
+            data,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{base_name}.xlsx"'
+        return response
+
+
+class ImportMedicamentsExcelView(LoginRequiredMixin, View):
+    """
+    POST /pharmacie/import/excel/
+    Importe une liste de médicaments (et leurs lots initiaux optionnels) depuis un fichier Excel (.xlsx ou .csv).
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        uploaded = request.FILES.get("excel_file")
+        if not uploaded:
+            messages.error(request, "Veuillez sélectionner un fichier Excel (.xlsx ou .csv) à importer.")
+            return redirect("/pharmacie/?tab=catalogue")
+
+        try:
+            raw_bytes = uploaded.read()
+            records = parse_excel_or_csv_bytes(raw_bytes, filename=uploaded.name)
+            if not records:
+                messages.error(
+                    request,
+                    "Aucune ligne valide détectée dans le fichier Excel. Vérifiez la ligne d'en-tête.",
+                )
+                return redirect("/pharmacie/?tab=catalogue")
+
+            nb_crees = 0
+            nb_maj = 0
+            nb_lots = 0
+            valid_cats = {c[0] for c in CategorieProduitChoices.choices}
+
+            for idx, rec in enumerate(records, start=1):
+                nom_comm = first_non_empty(
+                    rec,
+                    ["nom_commercial", "nom", "designation", "medicament", "produit", "libelle"],
+                )
+                dci = first_non_empty(rec, ["dci", "substance_active", "molecule"], default=nom_comm)
+                if not nom_comm and not dci:
+                    continue
+                if not nom_comm:
+                    nom_comm = dci
+
+                code_cip = first_non_empty(
+                    rec,
+                    ["code_cip_ean13", "code_cip", "ean13", "code_barres", "cip", "code"],
+                )
+                if not code_cip:
+                    code_cip = f"3400999{idx:06d}"[:20]
+
+                dosage = first_non_empty(rec, ["dosage", "concentration", "force"], default="Standard")
+                forme = first_non_empty(
+                    rec, ["forme_galenique", "forme", "presentation"], default="Boîte / Unité"
+                )
+                classe_ther = first_non_empty(rec, ["classe_therapeutique", "classe", "atc"], default="")
+                cat_raw = first_non_empty(
+                    rec, ["categorie", "type"], default=CategorieProduitChoices.MEDICAMENT_REMBOURSABLE
+                ).upper()
+                categorie = (
+                    cat_raw
+                    if cat_raw in valid_cats
+                    else CategorieProduitChoices.MEDICAMENT_REMBOURSABLE
+                )
+
+                def _to_dec(val_str: str, fallback: str = "0.00") -> Decimal:
+                    try:
+                        clean = (val_str or "").replace(" ", "").replace(",", ".").replace("€", "").replace("DA", "")
+                        return Decimal(clean) if clean else Decimal(fallback)
+                    except Exception:
+                        return Decimal(fallback)
+
+                def _to_int(val_str: str, fallback: int = 0) -> int:
+                    try:
+                        clean = (val_str or "").split(".")[0].split(",")[0].strip()
+                        return max(0, int(clean)) if clean else fallback
+                    except Exception:
+                        return fallback
+
+                prix_achat = _to_dec(first_non_empty(rec, ["prix_achat_ht", "prix_achat", "pa_ht"], "10.00"), "10.00")
+                pmp_ht = _to_dec(first_non_empty(rec, ["pmp_ht", "pmp"], str(prix_achat)), str(prix_achat))
+                prix_vente = _to_dec(first_non_empty(rec, ["prix_vente_ttc", "prix_vente", "ppa"], "0.00"), "0.00")
+                taux_tva = _to_dec(first_non_empty(rec, ["taux_tva", "tva"], "9.00"), "9.00")
+
+                stock_min = _to_int(first_non_empty(rec, ["stock_minimum", "seuil_alerte", "stock_min"], "20"), 20)
+                stock_sec = _to_int(first_non_empty(rec, ["stock_securite", "stock_sec"], "10"), 10)
+                stock_max = _to_int(first_non_empty(rec, ["stock_maximum", "stock_max"], "100"), 100)
+                rayon = first_non_empty(
+                    rec,
+                    ["rayon_emplacement", "rayon_par_defaut", "emplacement", "rayon"],
+                    default="Armoire Pharmacie Centrale - A1",
+                )
+                fournisseur_nom = first_non_empty(rec, ["fournisseur", "laboratoire", "grossiste"], default="")
+                fournisseur_obj = None
+                if fournisseur_nom:
+                    fournisseur_obj, _ = Fournisseur.objects.get_or_create(nom=fournisseur_nom[:150])
+
+                produit, created = ProduitPharmaceutique.objects.update_or_create(
+                    code_cip_ean13=code_cip[:20],
+                    defaults={
+                        "nom_commercial": nom_comm[:200],
+                        "dci": dci[:200],
+                        "dosage": dosage[:100],
+                        "forme_galenique": forme[:100],
+                        "classe_therapeutique": classe_ther[:150],
+                        "categorie": categorie,
+                        "fournisseur_prefere": fournisseur_obj,
+                        "prix_achat_ht": prix_achat,
+                        "prix_moyen_pondere_ht": pmp_ht,
+                        "prix_vente_ttc": prix_vente,
+                        "taux_tva": taux_tva,
+                        "stock_minimum": stock_min,
+                        "stock_securite": stock_sec,
+                        "stock_maximum": max(stock_max, stock_min + 10),
+                        "rayon_par_defaut": rayon[:100],
+                    },
+                )
+                if created:
+                    nb_crees += 1
+                else:
+                    nb_maj += 1
+
+                # Si le fichier Excel contient aussi un stock/lot initial, on crée/met à jour le LotStock FEFO
+                qte_lot = _to_int(
+                    first_non_empty(
+                        rec,
+                        [
+                            "stock_actuel_fefo",
+                            "quantite_lot_initial",
+                            "quantite_lot",
+                            "stock_initial",
+                            "quantite_disponible",
+                            "quantite",
+                            "stock",
+                        ],
+                        "0",
+                    ),
+                    0,
+                )
+                num_lot = first_non_empty(
+                    rec,
+                    ["numero_lot_initial", "numero_lot", "lot"],
+                    default=f"LOT-IMP-{timezone.localdate().strftime('%Y')}-{idx:03d}",
+                )
+                date_peremp = parse_flexible_date(
+                    first_non_empty(rec, ["date_peremption_lot", "date_peremption", "peremption", "expiration"]),
+                    default_date=timezone.localdate() + timezone.timedelta(days=365),
+                )
+                if qte_lot > 0 and num_lot:
+                    lot_obj, lot_created = LotStock.objects.update_or_create(
+                        produit=produit,
+                        numero_lot=num_lot[:80],
+                        defaults={
+                            "date_peremption": date_peremp,
+                            "quantite_disponible": qte_lot,
+                            "emplacement_physique": rayon[:120],
+                            "statut": StatutLotChoices.ACTIF,
+                        },
+                    )
+                    lot_obj.actualiser_statut_peremption(save=True)
+                    if lot_created:
+                        MouvementStock.objects.create(
+                            lot=lot_obj,
+                            produit=produit,
+                            type_mouvement=TypeMouvementStockChoices.ENTREE_ACHAT,
+                            quantite=qte_lot,
+                            stock_lot_avant=0,
+                            stock_lot_apres=qte_lot,
+                            prix_unitaire_ht=prix_achat,
+                            utilisateur=request.user if request.user.is_authenticated else None,
+                            motif_reference=f"Importation Excel Catalogue ({uploaded.name})",
+                        )
+                    nb_lots += 1
+
+            messages.success(
+                request,
+                f"Importation Excel Médicaments réussie ({uploaded.name}) : "
+                f"{nb_crees} créé(s), {nb_maj} mis à jour, {nb_lots} lot(s) FEFO initialisé(s).",
+            )
+        except Exception as exc:
+            messages.error(request, f"Erreur lors de l'importation Excel des médicaments : {exc}")
+        return redirect("/pharmacie/?tab=catalogue")
+

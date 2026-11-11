@@ -23,14 +23,20 @@ from django.views.generic import DetailView, TemplateView
 from apps.core.models import Hospitalization, Patient, UserRole
 from apps.facturation.models import (
     ActeMedicalNGAP,
+    BaseCalculRemboursementChoices,
     BordereauTiersPayant,
     ConventionPriseEnCharge,
     EtablissementFiscal,
     FacturePatient,
+    LettreCleNGAPChoices,
     LigneFactureActe,
     ModePaiementAlgerieChoices,
     OrganismeTiersPayant,
     StatutFactureChoices,
+    TauxTVAAlgerieChoices,
+    TypeActeFacturableChoices,
+    TypeEtablissementSanteChoices,
+    TypeOrganismePayeurChoices,
     TypePriseEnChargeFactureChoices,
 )
 from apps.facturation.services import (
@@ -39,6 +45,7 @@ from apps.facturation.services import (
     calculer_droit_timbre_algerie,
     enregistrer_paiement_patient,
     generer_bordereau_tiers_payant,
+    imputer_consommation_medicament_malade,
     initialiser_donnees_demo_facturation_algerie,
     valider_et_numeroter_facture,
 )
@@ -52,6 +59,8 @@ FACTURATION_ROLE_BADGES = {
     "SAGE_FEMME": {"badge_class": "bg-pink-100 text-pink-800 border-pink-300"},
     "SECRETAIRE": {"badge_class": "bg-amber-100 text-amber-800 border-amber-300"},
     "GESTIONNAIRE_ADMISSION": {"badge_class": "bg-teal-100 text-teal-800 border-teal-300"},
+    "GESTIONNAIRE_PHARMACIE": {"badge_class": "bg-teal-100 text-teal-800 border-teal-300"},
+    "GESTIONNAIRE_FACTURATION": {"badge_class": "bg-emerald-100 text-emerald-800 border-emerald-300"},
 }
 
 
@@ -160,6 +169,14 @@ class FacturationAlgerieDashboardView(LoginRequiredMixin, TemplateView):
                 "lignes_retrocession": lignes_retrocession,
                 "modes_paiement": ModePaiementAlgerieChoices.choices,
                 "types_pec": TypePriseEnChargeFactureChoices.choices,
+                # Choix pour les formulaires de Paramétrage Facturation
+                "types_etablissement": TypeEtablissementSanteChoices.choices,
+                "lettres_cles_ngap": LettreCleNGAPChoices.choices,
+                "types_acte_facturable": TypeActeFacturableChoices.choices,
+                "taux_tva_choices": TauxTVAAlgerieChoices.choices,
+                "types_organisme": TypeOrganismePayeurChoices.choices,
+                "bases_calcul_remboursement": BaseCalculRemboursementChoices.choices,
+                "preselected_patient_id": self.request.GET.get("patient_id", ""),
             }
         )
         return context
@@ -415,3 +432,187 @@ def api_simuler_droit_timbre(request: HttpRequest) -> JsonResponse:
             "exonere": timbre == Decimal("0.00"),
         }
     )
+
+
+class ImputerConsommationMaladeView(LoginRequiredMixin, View):
+    """
+    POST /facturation/consommation-malade/
+    Enregistre une consommation de médicament pour un malade et la reporte automatiquement
+    sur sa facture ouverte (ou crée une nouvelle facture brouillon pour ce malade) avec
+    déstockage FEFO automatique dans la Pharmacie.
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        try:
+            patient_id = int(request.POST.get("patient_id", 0))
+            produit_id = int(request.POST.get("produit_id", 0))
+            quantite = int(request.POST.get("quantite", 1) or 1)
+            facture_id_str = request.POST.get("facture_id", "").strip()
+            facture_id = int(facture_id_str) if facture_id_str else None
+            ppa_str = request.POST.get("tarif_ppa_unitaire_ht_da", "").strip()
+            ppa_val = Decimal(ppa_str.replace(",", ".")) if ppa_str else None
+
+            facture, ligne_pharma, facture_creee = imputer_consommation_medicament_malade(
+                patient_id=patient_id,
+                produit_id=produit_id,
+                quantite=quantite,
+                utilisateur=request.user,
+                facture_id=facture_id,
+                tarif_ppa_unitaire_ht_da=ppa_val,
+            )
+            lot_code = ligne_pharma.lot_sorti.numero_lot if ligne_pharma.lot_sorti else "FEFO"
+            info_fac = "Nouvelle facture ouverte automatiquement" if facture_creee else "Reporté sur facture existante"
+            messages.success(
+                request,
+                f"Consommation médicament reportée sur la facture {facture.numero_facture} ({info_fac}) "
+                f"du malade {facture.patient.full_name} : {ligne_pharma.quantite} x {ligne_pharma.produit.nom_commercial} "
+                f"(Lot FEFO déstocké : {lot_code}) — Ligne TTC : {ligne_pharma.montant_ttc_da} DA "
+                f"(Part Caisse : {ligne_pharma.part_organisme_da} DA | Part Patient : {ligne_pharma.part_patient_da} DA).",
+            )
+        except Exception as exc:
+            messages.error(request, f"Erreur lors de l'imputation du médicament au malade : {exc}")
+        return redirect("/facturation/?tab=factures")
+
+
+class ParametrageFiscalUpdateView(LoginRequiredMixin, View):
+    """
+    POST /facturation/settings/fiscal/
+    Met à jour le paramétrage légal et fiscal de l'établissement (Raison sociale, Régime,
+    NIF, NIS, N° RC, Article d'Imposition AI, RIB/RIP, N° Convention CNAS, Exercice fiscal).
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        try:
+            etab = EtablissementFiscal.objects.first()
+            if not etab:
+                etab = EtablissementFiscal()
+
+            etab.raison_sociale = request.POST.get("raison_sociale", etab.raison_sociale).strip()
+            etab.type_etablissement = request.POST.get("type_etablissement", etab.type_etablissement).strip()
+            etab.forme_juridique = request.POST.get("forme_juridique", etab.forme_juridique).strip()
+            etab.adresse_complete = request.POST.get("adresse_complete", etab.adresse_complete).strip()
+            etab.wilaya = request.POST.get("wilaya", etab.wilaya).strip()
+            etab.telephone = request.POST.get("telephone", etab.telephone).strip()
+            etab.nif = request.POST.get("nif", etab.nif).strip()
+            etab.nis = request.POST.get("nis", etab.nis).strip()
+            etab.rc = request.POST.get("rc", etab.rc).strip()
+            etab.article_imposition = request.POST.get("article_imposition", etab.article_imposition).strip()
+            etab.rib_bancaire = request.POST.get("rib_bancaire", etab.rib_bancaire).strip()
+            etab.numero_convention_cnas = request.POST.get(
+                "numero_convention_cnas", etab.numero_convention_cnas
+            ).strip()
+            exo_str = request.POST.get("exercice_fiscal_courant", "").strip()
+            if exo_str.isdigit():
+                etab.exercice_fiscal_courant = int(exo_str)
+
+            etab.save()
+            messages.success(
+                request,
+                f"Paramétrage fiscal mis à jour : {etab.raison_sociale} (NIF : {etab.nif} | NIS : {etab.nis} | RC : {etab.rc} | AI : {etab.article_imposition}).",
+            )
+        except Exception as exc:
+            messages.error(request, f"Erreur lors de la sauvegarde du paramétrage fiscal : {exc}")
+        return redirect("/facturation/?tab=fiscalite_dz")
+
+
+class ParametrageActeNGAPSaveView(LoginRequiredMixin, View):
+    """
+    POST /facturation/settings/ngap-save/
+    Crée ou met à jour un acte médical/chirurgical NGAP ou forfait clinique
+    (Code NGAP, Libellé, Lettre-clé, Coefficient, Tarif CNAS, Tarif Clinique HT, TVA, % Rétrocession praticien).
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        try:
+            code_ngap = request.POST.get("code_ngap", "").strip().upper()
+            if not code_ngap:
+                raise ValidationError("Le code NGAP est obligatoire.")
+            libelle = request.POST.get("libelle", "").strip()
+            type_acte = request.POST.get("type_acte", TypeActeFacturableChoices.ACTE_NGAP).strip()
+            lettre_cle = request.POST.get("lettre_cle", LettreCleNGAPChoices.K).strip()
+            coefficient = Decimal(request.POST.get("coefficient", "1").replace(",", ".") or "1")
+            valeur_cle_cnas = Decimal(
+                request.POST.get("valeur_lettre_cle_cnas_da", "100").replace(",", ".") or "100"
+            )
+            tarif_ref_str = request.POST.get("tarif_reference_cnas_da", "").strip()
+            tarif_ref_cnas = (
+                Decimal(tarif_ref_str.replace(",", "."))
+                if tarif_ref_str
+                else (coefficient * valeur_cle_cnas).quantize(Decimal("0.01"))
+            )
+            tarif_clinique_ht = Decimal(
+                request.POST.get("tarif_clinique_ht_da", "0").replace(",", ".") or "0"
+            )
+            taux_tva = Decimal(request.POST.get("taux_tva", "9.00").replace(",", ".") or "9.00")
+            taux_retro = Decimal(
+                request.POST.get("taux_retrocession_praticien_defaut", "70.00").replace(",", ".") or "70.00"
+            )
+            est_remboursable = request.POST.get("est_remboursable_cnas", "1") == "1"
+
+            acte, created = ActeMedicalNGAP.objects.update_or_create(
+                code_ngap=code_ngap,
+                defaults={
+                    "libelle": libelle,
+                    "type_acte": type_acte,
+                    "lettre_cle": lettre_cle,
+                    "coefficient": coefficient,
+                    "valeur_lettre_cle_cnas_da": valeur_cle_cnas,
+                    "tarif_reference_cnas_da": tarif_ref_cnas,
+                    "tarif_clinique_ht_da": tarif_clinique_ht,
+                    "taux_tva": taux_tva,
+                    "taux_retrocession_praticien_defaut": taux_retro,
+                    "est_remboursable_cnas": est_remboursable,
+                },
+            )
+            action_lbl = "créé" if created else "mis à jour"
+            messages.success(
+                request,
+                f"Paramétrage NGAP [{acte.code_ngap}] « {acte.libelle} » {action_lbl} : "
+                f"{acte.tarif_clinique_ht_da} DA HT (TVA {acte.taux_tva}%, Rétrocession praticien {acte.taux_retrocession_praticien_defaut}%).",
+            )
+        except Exception as exc:
+            messages.error(request, f"Erreur de paramétrage NGAP : {exc}")
+        return redirect("/facturation/?tab=ngap_retro")
+
+
+class ParametrageOrganismeSaveView(LoginRequiredMixin, View):
+    """
+    POST /facturation/settings/organisme-save/
+    Crée ou met à jour un organisme de Tiers-Payant (CNAS, CASNOS, Mutuelle, Assurance, Entreprise).
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        try:
+            code_org = request.POST.get("code_organisme", "").strip().upper()
+            if not code_org:
+                raise ValidationError("Le code organisme est obligatoire.")
+            nom = request.POST.get("nom", "").strip()
+            type_org = request.POST.get("type_organisme", TypeOrganismePayeurChoices.CNAS).strip()
+            taux_defaut = Decimal(
+                request.POST.get("taux_couverture_defaut_pct", "80.00").replace(",", ".") or "80.00"
+            )
+            base_calcul = request.POST.get(
+                "base_calcul", BaseCalculRemboursementChoices.SUR_TARIF_REFERENCE_CNAS
+            ).strip()
+            adresse = request.POST.get("adresse_centre_paiement", "").strip()
+
+            org, created = OrganismeTiersPayant.objects.update_or_create(
+                code_organisme=code_org,
+                defaults={
+                    "nom": nom,
+                    "type_organisme": type_org,
+                    "taux_couverture_defaut_pct": taux_defaut,
+                    "base_calcul": base_calcul,
+                    "adresse_centre_paiement": adresse,
+                    "est_actif": True,
+                },
+            )
+            action_lbl = "ajouté" if created else "mis à jour"
+            messages.success(
+                request,
+                f"Organisme Tiers-Payant [{org.code_organisme}] {org.nom} {action_lbl} (Couverture défaut : {org.taux_couverture_defaut_pct}%).",
+            )
+        except Exception as exc:
+            messages.error(request, f"Erreur de paramétrage organisme Tiers-Payant : {exc}")
+        return redirect("/facturation/?tab=tiers_payant")
+

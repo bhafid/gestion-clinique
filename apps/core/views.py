@@ -18,12 +18,22 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views import View
 from django.views.generic import ListView, TemplateView
 
+from .excel_utils import (
+    build_csv_bytes,
+    build_xlsx_bytes,
+    first_non_empty,
+    generate_valid_nir_for_patient,
+    parse_excel_or_csv_bytes,
+    parse_flexible_date,
+)
 from .models import (
     AuditActionType,
     Bed,
     BedStatus,
+    BloodGroup,
     CustomUser,
     Department,
     DutyShift,
@@ -37,18 +47,70 @@ from .models import (
     ShiftReplacementStatus,
     ShiftType,
     UserRole,
+    validate_french_nir,
 )
 from .pdf_consent_service import generate_admission_consent_pdf
+
+
+def ensure_specialized_role_accounts() -> None:
+    """
+    Garantit l'existence des comptes de démonstration RBAC pour :
+    - Gestionnaire de la Pharmacie (`pharm_salim` / `HospitalPass123!`)
+    - Gestionnaire de la Facturation (`fact_amina` / `HospitalPass123!`)
+    """
+    accounts = [
+        {
+            "username": "pharm_salim",
+            "first_name": "Dr Salim",
+            "last_name": "Boudiaf (Pharmacien Chef)",
+            "email": "s.boudiaf@clinique-sidiyahia2.dz",
+            "role": UserRole.GESTIONNAIRE_PHARMACIE,
+        },
+        {
+            "username": "fact_amina",
+            "first_name": "Amina",
+            "last_name": "Khelifi (Resp. Facturation & CNAS)",
+            "role": UserRole.GESTIONNAIRE_FACTURATION,
+            "email": "a.khelifi@clinique-sidiyahia2.dz",
+        },
+    ]
+    for acc in accounts:
+        user, created = CustomUser.objects.get_or_create(
+            username=acc["username"],
+            defaults={
+                "first_name": acc["first_name"],
+                "last_name": acc["last_name"],
+                "email": acc["email"],
+                "role": acc["role"],
+                "is_staff": True,
+                "is_active": True,
+            },
+        )
+        if created or user.role != acc["role"]:
+            user.role = acc["role"]
+            user.is_staff = True
+            user.is_active = True
+            user.set_password("HospitalPass123!")
+            user.save()
+            user.sync_role_permissions()
 
 
 class HospitalLoginView(LoginView):
     """
     Portail d'authentification unifié pour tous les utilisateurs du SIH
-    (Administrateur, Chirurgien, Médecin, Sage-Femme, Infirmier, Secrétaire).
+    (Administrateur, Chirurgien, Médecin, Sage-Femme, Infirmier, Secrétaire,
+    Gestionnaire Admission, Gestionnaire Pharmacie, Gestionnaire Facturation).
     """
 
     template_name = "registration/login.html"
     redirect_authenticated_user = True
+
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        try:
+            ensure_specialized_role_accounts()
+        except Exception:
+            pass
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -65,15 +127,16 @@ def hospital_logout_view(request: HttpRequest) -> HttpResponse:
 ROLE_PORTAL_CONFIG: Dict[str, Dict[str, Any]] = {
     UserRole.ADMIN: {
         "badge_class": "bg-purple-100 text-purple-800 border-purple-200",
-        "description": "Supervision intégrale du SIH : Gestion du personnel, tous les pôles cliniques, DPI, statuts patients, lits et validation des remplacements.",
+        "description": "Supervision intégrale du SIH : Gestion du personnel, Pharmacie (FEFO), Facturation Algérienne (NGAP/CNAS/DGI), tous les pôles cliniques, DPI et lits.",
         "actions": [
             {"label": "Suivi & Statuts Patients", "url": "/core/patients/"},
-            {"label": "Paramétrage Statuts", "url": "/admin/core/patientstatusconfig/"},
+            {"label": "Facturation & Tiers-Payant", "url": "/facturation/"},
+            {"label": "Paramétrage Facturation", "url": "/facturation/?tab=fiscalite_dz"},
+            {"label": "Pharmacie & Stocks (FEFO)", "url": "/pharmacie/"},
             {"label": "Gestion du Personnel & Rôles", "url": "/admin/core/customuser/"},
             {"label": "Pôle Chirurgie & Bloc", "url": "/chirurgie/intervention/"},
             {"label": "Pôle Pédiatrie", "url": "/pediatrie/anthropometry/"},
             {"label": "Pôle Urologie", "url": "/urologie/intervention/"},
-            {"label": "Gynéco & Maternité", "url": "/admin/gynecologie_maternite/"},
             {"label": "Validation Remplacements", "url": "/admin/core/shiftreplacement/"},
         ],
     },
@@ -144,6 +207,30 @@ ROLE_PORTAL_CONFIG: Dict[str, Dict[str, Any]] = {
             {"label": "Nouvelle Admission / Séjour", "url": "/admin/core/hospitalization/add/"},
             {"label": "Transferts & Sorties", "url": "/admin/core/hospitalization/"},
             {"label": "Occupation des Lits (Lecture seule)", "url": "/admin/core/bed/"},
+        ],
+    },
+    UserRole.GESTIONNAIRE_PHARMACIE: {
+        "badge_class": "bg-teal-100 text-teal-800 border-teal-300",
+        "description": "Gestionnaire de la Pharmacie Hospitalière & Achats : Pilotage des stocks par lots (FEFO), consommation de médicaments par malade (report automatique sur facture), bons de commande, réceptions douchette (PMP) et inventaire tournant.",
+        "actions": [
+            {"label": "💊 Cockpit Pharmacie & Stocks (FEFO)", "url": "/pharmacie/"},
+            {"label": "🏥 Consommation Médicament Malade", "url": "/pharmacie/?tab=catalogue&open_conso=1"},
+            {"label": "🛒 Suggestions & Bons de Commande", "url": "/pharmacie/?tab=achats"},
+            {"label": "🔫 Réception Livraisons (Douchette)", "url": "/pharmacie/?tab=reception"},
+            {"label": "📋 Inventaire Tournant & Audit Stupéfiants", "url": "/pharmacie/?tab=inventaire"},
+            {"label": "🧾 Consulter Factures Patients", "url": "/facturation/"},
+        ],
+    },
+    UserRole.GESTIONNAIRE_FACTURATION: {
+        "badge_class": "bg-emerald-100 text-emerald-800 border-emerald-300",
+        "description": "Gestionnaire de la Facturation & Tiers-Payant Algérie : Facturation NGAP & Pharmacie PPA (FEFO), TVA 9%/19%, Droit de Timbre Espèces vs CIB/Edahabia, conventions CNAS/CASNOS, bordereaux caisses et paramétrage fiscal DGI (NIF/NIS/RC/AI).",
+        "actions": [
+            {"label": "🧾 Cockpit Facturation Algérie", "url": "/facturation/"},
+            {"label": "⚙️ Paramétrage Facturation & Fiscalité DGI", "url": "/facturation/?tab=fiscalite_dz"},
+            {"label": "🩺 Paramétrage NGAP & Rétrocession Médecins", "url": "/facturation/?tab=ngap_retro"},
+            {"label": "🏛️ Tiers-Payant CNAS/CASNOS & Bordereaux", "url": "/facturation/?tab=tiers_payant"},
+            {"label": "💊 Pharmacie & Tarifs PPA", "url": "/pharmacie/"},
+            {"label": "👤 Suivi Patients", "url": "/core/patients/"},
         ],
     },
 }
@@ -890,6 +977,343 @@ def quick_replacement_validation_view(request: HttpRequest, pk: int) -> HttpResp
 
     next_url = request.POST.get("next") or reverse("home_dashboard")
     return redirect(next_url)
+
+
+# ==============================================================================
+# IMPORTATION & EXPORTATION EXCEL (.XLSX / .CSV) DE LA LISTE DES MALADES
+# ==============================================================================
+
+class ExportPatientsExcelView(LoginRequiredMixin, View):
+    """
+    Exporte la liste complète des malades (Patients / DPI) au format Excel (.xlsx) ou CSV (.csv).
+    Si `?template=1`, génère un fichier modèle Excel pré-formaté pour l'importation de malades.
+    """
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        fmt = request.GET.get("format", "xlsx").strip().lower()
+        is_template = request.GET.get("template", "0") == "1"
+
+        headers = [
+            "IPP",
+            "Nom",
+            "Prenom",
+            "Nom_Naissance",
+            "Date_Naissance",
+            "Sexe",
+            "Groupe_Sanguin",
+            "NIR_Securite_Sociale",
+            "Numero_CNI_PC",
+            "Telephone",
+            "Email",
+            "Adresse",
+            "Commune_Ville",
+            "Wilaya",
+            "Statut_Actuel",
+            "Allergies_Connues",
+            "Antecedents_Majeurs",
+            "Traitements_En_Cours",
+            "Personne_Confiance",
+            "Tel_Personne_Confiance",
+        ]
+
+        rows: List[List[Any]] = []
+        if is_template:
+            rows.append([
+                "",
+                "BENALI",
+                "Karim",
+                "",
+                "1982-05-14",
+                "M",
+                "O+",
+                "",
+                "109820514001",
+                "0550123456",
+                "k.benali@example.dz",
+                "Cité 200 Logements Bt B",
+                "Hydra",
+                "16 - Alger",
+                "ADMISSION",
+                "Pénicilline",
+                "HTA équilibrée",
+                "Amlodipine 5mg 1cp/j",
+                "BENALI Samira (Épouse)",
+                "0550654321",
+            ])
+            rows.append([
+                "",
+                "MANSOURI",
+                "Meriem",
+                "KHELIFI",
+                "1990-11-22",
+                "F",
+                "A+",
+                "",
+                "209901122004",
+                "0661987654",
+                "m.mansouri@example.dz",
+                "Rue Didouche Mourad",
+                "Alger Centre",
+                "16 - Alger",
+                "CONSULTATION",
+                "Aucune",
+                "RAS",
+                "Aucun",
+                "MANSOURI Reda",
+                "0661112233",
+            ])
+        else:
+            patients = Patient.objects.select_related("current_status").order_by("last_name", "first_name")
+            for p in patients:
+                rows.append([
+                    p.ipp,
+                    p.last_name,
+                    p.first_name,
+                    p.maiden_name or "",
+                    p.birth_date.strftime("%Y-%m-%d") if p.birth_date else "",
+                    p.gender,
+                    p.blood_group,
+                    p.nir,
+                    p.national_id_number or "",
+                    p.phone or "",
+                    p.email or "",
+                    p.address or "",
+                    p.city or "",
+                    p.state_province or "",
+                    p.current_status.code if p.current_status else "ADMISSION",
+                    p.known_allergies or "",
+                    p.major_medical_history or "",
+                    p.ongoing_treatments or "",
+                    p.trusted_person_name or "",
+                    p.trusted_person_phone or "",
+                ])
+
+        SecurityAuditLog.log_action(
+            user=request.user,
+            action_type=AuditActionType.READ,
+            resource_name="Patient (Export Excel)",
+            details=f"Exportation Excel/CSV de la liste des malades ({len(rows)} lignes, format={fmt}, template={is_template})",
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        date_str = timezone.now().strftime("%Y%m%d_%H%M")
+        base_name = "Modele_Import_Malades" if is_template else f"Liste_Malades_Clinique_{date_str}"
+
+        if fmt == "csv":
+            csv_bytes = build_csv_bytes(headers, rows)
+            response = HttpResponse(csv_bytes, content_type="text/csv; charset=utf-8")
+            response["Content-Disposition"] = f'attachment; filename="{base_name}.csv"'
+            return response
+
+        xlsx_bytes = build_xlsx_bytes("Malades_Patients", headers, rows)
+        response = HttpResponse(
+            xlsx_bytes,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{base_name}.xlsx"'
+        return response
+
+
+class ImportPatientsExcelView(LoginRequiredMixin, View):
+    """
+    Importe une liste de malades (Patients) depuis un fichier Excel (.xlsx) ou CSV (.csv).
+    - Met à jour le dossier existant si l'IPP, le NIR ou le triplet (Nom, Prénom, Date de naissance) existe déjà.
+    - Génère automatiquement l'IPP (`IPP-YYYY-XXXXXX`) et un NIR valide à 15 chiffres avec clé modulo 97
+      si non fourni dans le fichier Excel.
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        uploaded_file = request.FILES.get("excel_file")
+        if not uploaded_file:
+            messages.error(request, "Veuillez sélectionner un fichier Excel (.xlsx) ou CSV (.csv) à importer.")
+            return redirect("/core/patients/")
+
+        try:
+            raw_bytes = uploaded_file.read()
+            records = parse_excel_or_csv_bytes(raw_bytes, uploaded_file.name)
+        except Exception as exc:
+            messages.error(request, f"Erreur de lecture du fichier « {uploaded_file.name} » : {exc}")
+            return redirect("/core/patients/")
+
+        if not records:
+            messages.error(request, "Le fichier importé ne contient aucune ligne de malade exploitable.")
+            return redirect("/core/patients/")
+
+        created_count = 0
+        updated_count = 0
+        skipped_count = 0
+
+        valid_blood_groups = {choice[0].upper(): choice[0] for choice in BloodGroup.choices}
+        status_map = {
+            st.code.upper(): st
+            for st in PatientStatusConfig.objects.filter(is_active=True)
+        }
+        default_status = status_map.get("ADMISSION") or PatientStatusConfig.objects.filter(is_active=True).first()
+
+        for idx, rec in enumerate(records, start=1):
+            last_name = first_non_empty(rec, ["nom", "last_name", "nom_usuel", "nom_de_famille", "famille"]).strip().upper()
+            first_name = first_non_empty(rec, ["prenom", "first_name", "prenoms"]).strip().title()
+
+            # Si une seule colonne "nom_complet" / "patient" / "malade" est fournie
+            if not last_name and not first_name:
+                full_name_raw = first_non_empty(rec, ["nom_complet", "patient", "malade", "nom_prenom"])
+                if full_name_raw:
+                    parts = full_name_raw.split(None, 1)
+                    last_name = parts[0].upper()
+                    first_name = parts[1].title() if len(parts) > 1 else "Patient"
+
+            if not last_name:
+                skipped_count += 1
+                continue
+            if not first_name:
+                first_name = "Patient"
+
+            ipp_raw = first_non_empty(rec, ["ipp", "identifiant_ipp", "code_patient", "id_patient"]).strip().upper()
+            maiden_name = first_non_empty(rec, ["nom_naissance", "maiden_name", "nom_jeune_fille"]).strip().upper()
+            birth_date_raw = first_non_empty(rec, ["date_naissance", "birth_date", "ddn", "naissance", "date_de_naissance"])
+            birth_date = parse_flexible_date(birth_date_raw, default_date=date(1985, 1, 1))
+
+            gender_raw = first_non_empty(rec, ["sexe", "gender", "genre"], default="M").strip().upper()
+            if gender_raw.startswith(("F", "FEM")):
+                gender = "F"
+            elif gender_raw.startswith(("M", "H", "MASC")):
+                gender = "M"
+            else:
+                gender = "I"
+
+            bg_raw = first_non_empty(rec, ["groupe_sanguin", "blood_group", "groupe", "gs"], default="IND").strip().upper()
+            blood_group = valid_blood_groups.get(bg_raw, BloodGroup.INDETERMINE)
+
+            nir_raw = first_non_empty(rec, ["nir_securite_sociale", "nir", "nss", "securite_sociale", "num_securite_sociale"]).strip()
+            nir_clean = nir_raw.replace(" ", "")
+            nir_is_valid = False
+            if len(nir_clean) == 15:
+                try:
+                    validate_french_nir(nir_clean)
+                    nir_is_valid = True
+                except ValidationError:
+                    nir_is_valid = False
+
+            cni_raw = first_non_empty(rec, ["numero_cni_pc", "cni", "piece_identite", "national_id_number", "nin"]).strip()
+            phone = first_non_empty(rec, ["telephone", "tel", "phone", "mobile", "gsm"]).strip()
+            email = first_non_empty(rec, ["email", "courriel", "mail"]).strip()
+            address = first_non_empty(rec, ["adresse", "address", "rue", "domicile"]).strip()
+            city = first_non_empty(rec, ["commune_ville", "ville", "commune", "city"]).strip()
+            wilaya = first_non_empty(rec, ["wilaya", "state_province", "departement", "province"]).strip()
+
+            status_raw = first_non_empty(rec, ["statut_actuel", "statut", "status", "current_status"], default="ADMISSION").strip().upper()
+            target_status = status_map.get(status_raw, default_status)
+
+            allergies = first_non_empty(rec, ["allergies_connues", "allergies", "known_allergies"]).strip()
+            antecedents = first_non_empty(rec, ["antecedents_majeurs", "antecedents", "major_medical_history"]).strip()
+            traitements = first_non_empty(rec, ["traitements_en_cours", "traitements", "ongoing_treatments"]).strip()
+            trusted_name = first_non_empty(rec, ["personne_confiance", "trusted_person_name", "contact_urgence"]).strip()
+            trusted_phone = first_non_empty(rec, ["tel_personne_confiance", "trusted_person_phone", "tel_urgence"]).strip()
+
+            # Recherche d'un dossier patient existant pour éviter tout doublon
+            existing_patient = None
+            if ipp_raw:
+                existing_patient = Patient.objects.filter(ipp__iexact=ipp_raw).first()
+            if not existing_patient and nir_is_valid:
+                existing_patient = Patient.objects.filter(nir=nir_clean).first()
+            if not existing_patient:
+                existing_patient = Patient.objects.filter(
+                    last_name__iexact=last_name,
+                    first_name__iexact=first_name,
+                    birth_date=birth_date,
+                ).first()
+
+            if existing_patient:
+                existing_patient.last_name = last_name
+                existing_patient.first_name = first_name
+                if maiden_name:
+                    existing_patient.maiden_name = maiden_name
+                existing_patient.birth_date = birth_date
+                existing_patient.gender = gender
+                if blood_group != BloodGroup.INDETERMINE or not existing_patient.blood_group:
+                    existing_patient.blood_group = blood_group
+                if cni_raw:
+                    existing_patient.national_id_number = cni_raw
+                if phone:
+                    existing_patient.phone = phone
+                if email:
+                    existing_patient.email = email
+                if address:
+                    existing_patient.address = address
+                if city:
+                    existing_patient.city = city
+                if wilaya:
+                    existing_patient.state_province = wilaya
+                if target_status:
+                    existing_patient.current_status = target_status
+                if allergies:
+                    existing_patient.known_allergies = allergies
+                if antecedents:
+                    existing_patient.major_medical_history = antecedents
+                if traitements:
+                    existing_patient.ongoing_treatments = traitements
+                if trusted_name:
+                    existing_patient.trusted_person_name = trusted_name
+                if trusted_phone:
+                    existing_patient.trusted_person_phone = trusted_phone
+                existing_patient.save()
+                updated_count += 1
+            else:
+                # Générer un NIR valide et unique si non fourni ou invalide
+                final_nir = nir_clean if (nir_is_valid and not Patient.objects.filter(nir=nir_clean).exists()) else ""
+                seed_offset = Patient.objects.count() + idx + 100
+                while not final_nir:
+                    candidate_nir = generate_valid_nir_for_patient(birth_date, gender, unique_seed=seed_offset)
+                    if not Patient.objects.filter(nir=candidate_nir).exists():
+                        final_nir = candidate_nir
+                    seed_offset += 1
+
+                new_patient = Patient(
+                    nir=final_nir,
+                    last_name=last_name,
+                    first_name=first_name,
+                    maiden_name=maiden_name,
+                    birth_date=birth_date,
+                    gender=gender,
+                    blood_group=blood_group,
+                    current_status=target_status,
+                    status_updated_at=timezone.now(),
+                    national_id_number=cni_raw,
+                    phone=phone,
+                    email=email,
+                    address=address,
+                    city=city,
+                    state_province=wilaya,
+                    known_allergies=allergies,
+                    major_medical_history=antecedents,
+                    ongoing_treatments=traitements,
+                    trusted_person_name=trusted_name,
+                    trusted_person_phone=trusted_phone,
+                )
+                if ipp_raw and not Patient.objects.filter(ipp__iexact=ipp_raw).exists():
+                    new_patient.ipp = ipp_raw
+                new_patient.save()
+                created_count += 1
+
+        SecurityAuditLog.log_action(
+            user=request.user,
+            action_type=AuditActionType.CREATE,
+            resource_name="Patient (Import Excel)",
+            details=(
+                f"Importation Excel/CSV malades ({uploaded_file.name}) : "
+                f"{created_count} créé(s), {updated_count} mis à jour, {skipped_count} ignoré(s)."
+            ),
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        messages.success(
+            request,
+            f"Importation Excel des malades terminée ({uploaded_file.name}) : "
+            f"{created_count} nouveau(x) patient(s) créé(s), {updated_count} dossier(s) mis à jour"
+            + (f", {skipped_count} ligne(s) ignorée(s)." if skipped_count else "."),
+        )
+        return redirect("/core/patients/")
+
 
 
 

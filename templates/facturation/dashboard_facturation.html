@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facturation Hospitalière Algérienne (NGAP, PPA, CNAS/CASNOS &amp; Fiscalité DGI) — Clinique Sidi Yahia 2</title>
+    <title>Facturation Hospitalière &amp; Tiers-Payant (NGAP, PPA, CNAS/CASNOS &amp; Fiscalité DGI) — Clinique Sidi Yahia 2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -57,10 +57,10 @@
                     <div class="min-w-0">
                         <div class="flex items-center gap-2.5 flex-wrap">
                             <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
-                                Facturation Hospitalière &amp; Tiers-Payant (Algérie)
+                                Facturation Hospitalière &amp; Tiers-Payant
                             </h1>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                🇩🇿 Conformité DGI (NIF / NIS / RC / AI) &bull; TVA 9% / 19% &bull; Timbre
+                                Conformité DGI (NIF / NIS / RC / AI) &bull; TVA 9% / 19% &bull; Timbre
                             </span>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-hospital-50 text-hospital-700 border border-hospital-200">
                                 NGAP &bull; PPA Pharmacie (FEFO) &bull; CNAS / CASNOS
@@ -89,7 +89,15 @@
                         </span>
                     </div>
 
-                    <a href="{% url 'pharmacie:dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors">
+                    <button
+                        type="button"
+                        onclick="switchBillTab('fiscalite_dz')"
+                        class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-extrabold bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-xs"
+                    >
+                        ⚙️ Paramétrage Facturation
+                    </button>
+
+                    <a href="/pharmacie/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors">
                         💊 Pharmacie &amp; Stocks
                     </a>
 
@@ -129,7 +137,7 @@
             <!-- KPI 1 : Chiffre d'Affaires Facturé TTC & TVA -->
             <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card flex items-center justify-between">
                 <div>
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">CA Total Facturé TTC (Algérie)</span>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">CA Total Facturé TTC</span>
                     <div class="text-2xl font-extrabold text-slate-900 mt-1">{{ ca_total_ttc_da }} DA</div>
                     <p class="text-[11px] text-slate-500 mt-1">
                         TVA 9% : <strong>{{ total_tva_9_da }} DA</strong> &bull; TVA 19% : <strong>{{ total_tva_19_da }} DA</strong>
@@ -226,8 +234,8 @@
                     id="billTabBtn-fiscalite_dz"
                     class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2"
                 >
-                    <span>🇩🇿</span>
-                    <span>4. Conformité Fiscale DGI &amp; Simulateur Timbre</span>
+                    <span>⚙️</span>
+                    <span>4. Paramétrage Facturation, Fiscalité DGI &amp; Timbre</span>
                 </button>
             </div>
         </div>
@@ -236,8 +244,61 @@
         <!-- ONGLET 1 : FACTURES PATIENTS, SAISIE NGAP/PPA & ENCAISSEMENT    -->
         <!-- =============================================================== -->
         <section id="billPanel-factures" class="space-y-5">
+            <!-- NOUVEAU : Option Consommation de Médicament pour un Malade avec Report Automatique sur sa Facture -->
+            <form method="post" action="/facturation/consommation-malade/" class="bg-teal-50/70 rounded-2xl border-2 border-teal-300 p-4 shadow-xs cockpit-card">
+                {% csrf_token %}
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h2 class="text-sm font-extrabold text-teal-900 flex items-center gap-2">
+                            <span>💊 Consommation de Médicament pour un Malade (&rarr; Report Automatique sur sa Facture)</span>
+                        </h2>
+                        <p class="text-xs text-teal-800 mt-0.5">
+                            Sélectionnez un malade et le médicament consommé : le système déstocke le lot prioritaire <strong>FEFO</strong> en Pharmacie et ajoute automatiquement la ligne au tarif <strong>PPA</strong> sur la facture ouverte du malade (ou lui ouvre une facture automatiquement).
+                        </p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-teal-600 text-white">
+                        Liaison Directe Pharmacie FEFO &harr; Facture Malade
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div class="md:col-span-4">
+                        <label class="block text-[11px] font-bold uppercase text-teal-900 mb-1">Malade / Patient Bénéficiaire *</label>
+                        <select name="patient_id" required class="w-full rounded-xl border border-teal-300 bg-white px-3 py-2 text-xs font-bold text-slate-900">
+                            {% for pat in patients %}
+                            <option value="{{ pat.id }}" {% if preselected_patient_id == pat.id|stringformat:"s" %}selected{% endif %}>
+                                🏥 {{ pat.full_name }} (IPP : {{ pat.ipp }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-4">
+                        <label class="block text-[11px] font-bold uppercase text-teal-900 mb-1">Médicament / Consommable (Stock FEFO) *</label>
+                        <select name="produit_id" required class="w-full rounded-xl border border-teal-300 bg-white px-3 py-2 text-xs font-bold text-slate-900">
+                            {% for prod in produits_pharmacie %}
+                            <option value="{{ prod.id }}">
+                                {{ prod.nom_commercial }} {{ prod.dosage }} — Dispo FEFO : {{ prod.stock_actuel }} u. ({{ prod.dci }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-1">
+                        <label class="block text-[11px] font-bold uppercase text-teal-900 mb-1">Qté *</label>
+                        <input type="number" name="quantite" value="1" min="1" required class="w-full rounded-xl border border-teal-300 bg-white px-2.5 py-2 text-xs font-extrabold text-center text-slate-900">
+                    </div>
+                    <div class="md:col-span-1">
+                        <label class="block text-[11px] font-bold uppercase text-teal-900 mb-1">PPA HT (DA)</label>
+                        <input type="number" step="0.01" name="tarif_ppa_unitaire_ht_da" placeholder="Auto" class="w-full rounded-xl border border-teal-300 bg-white px-2 py-2 text-xs text-slate-900">
+                    </div>
+                    <div class="md:col-span-2">
+                        <button type="submit" class="w-full py-2 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold shadow-xs transition-colors">
+                            💊 Imputer au Malade &amp; Facturer
+                        </button>
+                    </div>
+                </div>
+            </form>
+
             <!-- Formulaire d'ouverture rapide d'une nouvelle facture patient -->
-            <form method="post" action="{% url 'facturation:facture_create' %}" class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card">
+            <form method="post" action="/facturation/factures/create/" class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card">
                 {% csrf_token %}
                 <div class="flex items-center justify-between mb-3">
                     <h2 class="text-sm font-extrabold text-slate-900">
@@ -312,9 +373,9 @@
                             {% endif %}
                         </div>
 
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
                             {% if fac.statut == 'BROUILLON' %}
-                            <form method="post" action="{% url 'facturation:facture_validate' fac.id %}">
+                            <form method="post" action="/facturation/factures/{{ fac.id }}/validate/">
                                 {% csrf_token %}
                                 <button type="submit" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs">
                                     ✔ Valider &amp; Attribuer N° Séquentiel
@@ -323,12 +384,34 @@
                             {% endif %}
 
                             <a
-                                href="{% url 'facturation:facture_print' fac.id %}"
+                                href="/facturation/factures/{{ fac.id }}/imprimer/"
                                 target="_blank"
                                 class="inline-flex items-center px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-hospital-700 text-white text-xs font-extrabold shadow-xs transition-colors"
                             >
-                                🖨️ Imprimer Facture Réglementaire DZ (NIF/NIS/RC/AI)
+                                🖨️ Imprimer Facture DZ (NIF/NIS/RC/AI)
                             </a>
+
+                            <button
+                                type="button"
+                                onclick="shareInvoiceWhatsApp('{{ fac.numero_facture|escapejs }}', '{{ fac.patient.full_name|escapejs }}', '{{ fac.montant_total_ttc_da }}', '{{ fac.part_organisme_tiers_payant_da }}', '{{ fac.net_a_payer_patient_da }}', '/facturation/factures/{{ fac.id }}/imprimer/')"
+                                class="inline-flex items-center px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-extrabold transition-colors"
+                            >
+                                📲 WhatsApp
+                            </button>
+                            <button
+                                type="button"
+                                onclick="shareInvoiceEmail('{{ fac.numero_facture|escapejs }}', '{{ fac.patient.full_name|escapejs }}', '{{ fac.montant_total_ttc_da }}', '{{ fac.part_organisme_tiers_payant_da }}', '{{ fac.net_a_payer_patient_da }}', '/facturation/factures/{{ fac.id }}/imprimer/')"
+                                class="inline-flex items-center px-3 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-xs font-extrabold transition-colors"
+                            >
+                                ✉️ Email
+                            </button>
+                            <button
+                                type="button"
+                                onclick="copyInvoiceLink(this, '/facturation/factures/{{ fac.id }}/imprimer/')"
+                                class="inline-flex items-center px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-extrabold transition-colors"
+                            >
+                                🔗 Copier Lien
+                            </button>
                         </div>
                     </div>
 
@@ -450,7 +533,7 @@
                                 <!-- Formulaires rapides d'ajout d'Acte NGAP et de Médicament PPA (FEFO) -->
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                                     <!-- Ajouter un Acte NGAP -->
-                                    <form method="post" action="{% url 'facturation:facture_add_acte' fac.id %}" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5 cockpit-subcard">
+                                    <form method="post" action="/facturation/factures/{{ fac.id }}/add-acte/" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5 cockpit-subcard">
                                         {% csrf_token %}
                                         <div class="text-xs font-extrabold text-slate-800">+ Imputer un Acte NGAP / Forfait / Séjour</div>
                                         <select name="acte_id" required class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900">
@@ -475,7 +558,7 @@
                                     </form>
 
                                     <!-- Ajouter un Médicament au PPA avec Déstockage FEFO -->
-                                    <form method="post" action="{% url 'facturation:facture_add_pharma' fac.id %}" class="p-3.5 rounded-xl bg-teal-50/50 border border-teal-200 space-y-2.5 cockpit-subcard">
+                                    <form method="post" action="/facturation/factures/{{ fac.id }}/add-pharma/" class="p-3.5 rounded-xl bg-teal-50/50 border border-teal-200 space-y-2.5 cockpit-subcard">
                                         {% csrf_token %}
                                         <div class="text-xs font-extrabold text-teal-900">+ Consommer Produit Pharmacie au PPA (Déstockage FEFO)</div>
                                         <select name="produit_id" required class="w-full rounded-lg border border-teal-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900">
@@ -552,7 +635,7 @@
 
                                 <!-- Formulaire d'Encaissement Patient avec calcul automatique du Droit de Timbre -->
                                 {% if fac.reste_a_payer_patient_da > 0 %}
-                                <form method="post" action="{% url 'facturation:facture_pay' fac.id %}" class="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                                <form method="post" action="/facturation/factures/{{ fac.id }}/pay/" class="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
                                     {% csrf_token %}
                                     <div class="text-xs font-extrabold text-amber-900">
                                         💳 Encaisser le Ticket Modérateur Patient
@@ -600,6 +683,87 @@
         <!-- ONGLET 2 : NOMENCLATURE NGAP ALGÉRIENNE & RÉTROCESSION MÉDECINS -->
         <!-- =============================================================== -->
         <section id="billPanel-ngap_retro" class="hidden space-y-5">
+            <!-- Formulaire de Paramétrage / Création d'un Acte NGAP ou Forfait & Quote-part Rétrocession -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900">
+                            ⚙️ Paramétrer ou Ajouter un Acte NGAP / Forfait &amp; Quote-Part Praticien
+                        </h2>
+                        <p class="text-xs text-slate-500">
+                            Cliquez sur « ✏️ Paramétrer » sur une ligne du tableau ci-dessous pour pré-remplir et modifier un acte existant, ou saisissez un nouveau code NGAP.
+                        </p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        Nomenclature NGAP Algérie &amp; Partage d'Honoraires
+                    </span>
+                </div>
+
+                <form method="post" action="/facturation/settings/ngap-save/" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                    {% csrf_token %}
+                    <div class="lg:col-span-2">
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Code NGAP *</label>
+                        <input type="text" name="code_ngap" id="ngapFormCode" required placeholder="Ex: KC120, CS, AMI4..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-mono font-extrabold text-slate-900">
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Libellé officiel de l'acte *</label>
+                        <input type="text" name="libelle" id="ngapFormLibelle" required placeholder="Ex: Appendicectomie par coelioscopie..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Catégorie</label>
+                        <select name="type_acte" id="ngapFormType" class="w-full rounded-xl border border-slate-300 px-2.5 py-2 text-xs font-bold text-slate-900">
+                            {% for code, lbl in types_acte_facturable %}
+                            <option value="{{ code }}">{{ lbl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Lettre-Clé</label>
+                        <select name="lettre_cle" id="ngapFormLettre" class="w-full rounded-xl border border-slate-300 px-2 py-2 text-xs font-mono font-bold text-slate-900">
+                            {% for code, lbl in lettres_cles_ngap %}
+                            <option value="{{ code }}">{{ code }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Coeff.</label>
+                        <input type="number" step="0.01" name="coefficient" id="ngapFormCoeff" value="1.00" required class="w-full rounded-xl border border-slate-300 px-2.5 py-2 text-xs font-bold text-slate-900">
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Base CNAS</label>
+                        <input type="number" step="0.01" name="tarif_reference_cnas_da" id="ngapFormRefCnas" placeholder="DA" class="w-full rounded-xl border border-slate-300 px-2.5 py-2 text-xs font-bold text-teal-800">
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Tarif Clinique HT (DA) *</label>
+                        <input type="number" step="0.01" name="tarif_clinique_ht_da" id="ngapFormTarifClinique" required placeholder="Ex: 45000.00" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-extrabold text-slate-900">
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Taux TVA Algérie (CTCA)</label>
+                        <select name="taux_tva" id="ngapFormTva" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                            {% for code, lbl in taux_tva_choices %}
+                            <option value="{{ code }}">{{ lbl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label class="block text-[11px] font-bold uppercase text-indigo-700 mb-1">% Partage / Rétrocession Médecin *</label>
+                        <input type="number" step="0.01" min="0" max="100" name="taux_retrocession_praticien_defaut" id="ngapFormRetro" value="70.00" required class="w-full rounded-xl border border-indigo-300 bg-indigo-50/40 px-3 py-2 text-xs font-extrabold text-indigo-900">
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Remboursable CNAS / CASNOS</label>
+                        <select name="est_remboursable_cnas" id="ngapFormRemboursable" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                            <option value="1">Oui — Remboursable Caisse</option>
+                            <option value="0">Non — Hors nomenclature (100% Patient)</option>
+                        </select>
+                    </div>
+                    <div class="lg:col-span-3">
+                        <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white text-xs font-extrabold shadow-xs transition-colors">
+                            💾 Enregistrer le Paramétrage NGAP
+                        </button>
+                    </div>
+                </form>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 <!-- Catalogue NGAP Algérie -->
                 <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
@@ -621,6 +785,7 @@
                                     <th class="px-3 py-2.5 text-right">Tarif Clinique HT</th>
                                     <th class="px-3 py-2.5 text-center">TVA</th>
                                     <th class="px-3 py-2.5 text-center">% Rétrocession</th>
+                                    <th class="px-3 py-2.5 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-200">
@@ -640,6 +805,15 @@
                                         <span class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-extrabold">
                                             {{ a.taux_retrocession_praticien_defaut }}% Médecin
                                         </span>
+                                    </td>
+                                    <td class="px-3 py-2.5 text-right">
+                                        <button
+                                            type="button"
+                                            onclick="prefillNgapForm('{{ a.code_ngap|escapejs }}', '{{ a.libelle|escapejs }}', '{{ a.type_acte|escapejs }}', '{{ a.lettre_cle|escapejs }}', '{{ a.coefficient }}', '{{ a.tarif_reference_cnas_da }}', '{{ a.tarif_clinique_ht_da }}', '{{ a.taux_tva }}', '{{ a.taux_retrocession_praticien_defaut }}', '{{ a.est_remboursable_cnas|yesno:'1,0' }}')"
+                                            class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-hospital-100 text-slate-700 hover:text-hospital-800 font-bold text-[11px]"
+                                        >
+                                            ✏️ Paramétrer
+                                        </button>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -698,13 +872,13 @@
         <!-- =============================================================== -->
         <section id="billPanel-tiers_payant" class="hidden space-y-5">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                <!-- Colonne Gauche (5 cols) : Ouvrir une Prise en Charge CNAS/CASNOS & Générer Bordereau -->
+                <!-- Colonne Gauche (5 cols) : Ouvrir une Prise en Charge CNAS/CASNOS, Générer Bordereau & Paramétrer Organisme -->
                 <div class="lg:col-span-5 space-y-4">
                     <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-3.5">
                         <h2 class="text-base font-extrabold text-slate-900">
                             💳 Nouvelle Prise en Charge Assuré Social (Carte Chifa CNAS / CASNOS / Mutuelle)
                         </h2>
-                        <form method="post" action="{% url 'facturation:convention_create' %}" class="space-y-3">
+                        <form method="post" action="/facturation/conventions/create/" class="space-y-3">
                             {% csrf_token %}
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1">Patient Assuré / Ayant-droit *</label>
@@ -750,7 +924,7 @@
                         <p class="text-xs text-slate-500">
                             Regroupe toutes les factures validées non encore bordereautées pour l'organisme choisi.
                         </p>
-                        <form method="post" action="{% url 'facturation:bordereau_generate' %}" class="flex gap-2">
+                        <form method="post" action="/facturation/bordereaux/generate/" class="flex gap-2">
                             {% csrf_token %}
                             <select name="organisme_id" required class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
                                 {% for org in organismes %}
@@ -759,6 +933,51 @@
                             </select>
                             <button type="submit" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-hospital-700 text-white text-xs font-extrabold whitespace-nowrap">
                                 Générer Bordereau
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Paramétrage d'un Organisme Tiers-Payant (CNAS, CASNOS, Mutuelle, Assurance, Entreprise) -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-3">
+                        <h2 class="text-base font-extrabold text-slate-900">
+                            ⚙️ Paramétrer / Ajouter une Caisse ou Organisme Tiers-Payant
+                        </h2>
+                        <form method="post" action="/facturation/settings/organisme-save/" class="space-y-2.5 text-xs">
+                            {% csrf_token %}
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block font-bold text-slate-700 mb-1">Code Organisme *</label>
+                                    <input type="text" name="code_organisme" required placeholder="Ex: CNAS-16, SONATRACH..." class="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-bold">
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-700 mb-1">Taux Couverture Défaut (%)</label>
+                                    <input type="number" step="0.01" name="taux_couverture_defaut_pct" value="80.00" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-extrabold">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Nom de la Caisse / Mutuelle / Entreprise *</label>
+                                <input type="text" name="nom" required placeholder="Ex: CNAS Agence Hydra / Mutuelle Sonatrach..." class="w-full rounded-xl border border-slate-300 px-3 py-2 font-bold">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block font-bold text-slate-700 mb-1">Type d'organisme</label>
+                                    <select name="type_organisme" class="w-full rounded-xl border border-slate-300 px-2.5 py-2 font-bold">
+                                        {% for code, lbl in types_organisme %}
+                                        <option value="{{ code }}">{{ lbl }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-700 mb-1">Base de remboursement</label>
+                                    <select name="base_calcul" class="w-full rounded-xl border border-slate-300 px-2.5 py-2 font-bold">
+                                        {% for code, lbl in bases_calcul_remboursement %}
+                                        <option value="{{ code }}">{{ lbl }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full py-2 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white font-extrabold">
+                                💾 Enregistrer l'Organisme Tiers-Payant
                             </button>
                         </form>
                     </div>
@@ -810,81 +1029,146 @@
         </section>
 
         <!-- =============================================================== -->
-        <!-- ONGLET 4 : CONFORMITÉ FISCALE DGI & SIMULATEUR DROIT DE TIMBRE  -->
+        <!-- ONGLET 4 : PARAMÉTRAGE FACTURATION, FISCALITÉ DGI & TIMBRE      -->
         <!-- =============================================================== -->
         <section id="billPanel-fiscalite_dz" class="hidden space-y-5">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                <!-- Fiche d'Identité Fiscale de l'Établissement -->
-                <div class="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
-                    <h2 class="text-base font-extrabold text-slate-900">
-                        🇩🇿 Mentions Légales &amp; Fiscales Obligatoires (Décret Exécutif n° 05-468)
-                    </h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
-                            <span class="text-[10px] font-bold uppercase text-slate-400">Raison Sociale</span>
-                            <div class="font-extrabold text-slate-900 mt-0.5">{{ etablissement.raison_sociale }}</div>
+                <!-- Formulaire de Paramétrage de l'Identité Fiscale de l'Établissement -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h2 class="text-base font-extrabold text-slate-900">
+                                ⚙️ Paramétrage Fiscal &amp; Mentions Légales Obligatoires (Décret Exécutif n° 05-468)
+                            </h2>
+                            <p class="text-xs text-slate-500">
+                                Configurez les identifiants fiscaux algériens (NIF, NIS, RC, AI, RIB, N° Convention CNAS) imprimés sur toutes les factures réglementaires.
+                            </p>
                         </div>
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
-                            <span class="text-[10px] font-bold uppercase text-slate-400">Forme Juridique &amp; Capital</span>
-                            <div class="font-bold text-slate-800 mt-0.5">{{ etablissement.forme_juridique }}</div>
-                        </div>
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
-                            <span class="text-[10px] font-bold uppercase text-slate-400">N.I.F (Identification Fiscale DGI)</span>
-                            <div class="font-mono font-extrabold text-hospital-700 text-sm mt-0.5">{{ etablissement.nif }}</div>
-                        </div>
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
-                            <span class="text-[10px] font-bold uppercase text-slate-400">N.I.S (Identification Statistique ONS)</span>
-                            <div class="font-mono font-extrabold text-slate-900 text-sm mt-0.5">{{ etablissement.nis }}</div>
-                        </div>
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
-                            <span class="text-[10px] font-bold uppercase text-slate-400">N° Registre de Commerce (CNRC)</span>
-                            <div class="font-mono font-extrabold text-slate-900 text-sm mt-0.5">{{ etablissement.rc }}</div>
-                        </div>
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
-                            <span class="text-[10px] font-bold uppercase text-slate-400">Article d'Imposition (A.I)</span>
-                            <div class="font-mono font-extrabold text-slate-900 text-sm mt-0.5">{{ etablissement.article_imposition }}</div>
-                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Séquence Actuelle : {{ etablissement.exercice_fiscal_courant }} / N° {{ etablissement.dernier_numero_sequentiel }}
+                        </span>
                     </div>
-                </div>
 
-                <!-- Simulateur interactif du Droit de Timbre Algérien -->
-                <div class="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
-                    <div>
-                        <h2 class="text-base font-extrabold text-slate-900">
-                            🧮 Simulateur du Droit de Timbre Algérien (Code du Timbre / Loi de Finances)
-                        </h2>
-                        <p class="text-xs text-slate-500">
-                            Vérifiez en direct le calcul du Droit de Timbre selon le mode de paiement (Espèces vs CIB / Edahabia / Chèque / Virement).
-                        </p>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">Montant TTC hors timbre (DA)</label>
-                            <input
-                                type="number"
-                                id="simMontantInput"
-                                value="45000"
-                                oninput="runTimbreSimulation()"
-                                class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-extrabold text-slate-900"
-                            >
+                    <form method="post" action="/facturation/settings/fiscal/" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        {% csrf_token %}
+                        <div class="sm:col-span-2">
+                            <label class="block font-bold text-slate-700 mb-1">Raison Sociale Officielle de l'Établissement *</label>
+                            <input type="text" name="raison_sociale" value="{{ etablissement.raison_sociale }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 font-extrabold text-slate-900">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">Mode de règlement</label>
-                            <select id="simModeSelect" onchange="runTimbreSimulation()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
-                                {% for code, lbl in modes_paiement %}
-                                <option value="{{ code }}">{{ lbl }}</option>
+                            <label class="block font-bold text-slate-700 mb-1">Régime de l'Établissement</label>
+                            <select name="type_etablissement" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-bold text-slate-900">
+                                {% for code, lbl in types_etablissement %}
+                                <option value="{{ code }}" {% if etablissement.type_etablissement == code %}selected{% endif %}>{{ lbl }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                    </div>
-                    <div class="p-4 rounded-xl bg-slate-900 text-white flex items-center justify-between">
                         <div>
-                            <div class="text-xs text-slate-300">Droit de Timbre calculé :</div>
-                            <div id="simTimbreResult" class="text-xl font-extrabold text-amber-400">525.00 DA</div>
+                            <label class="block font-bold text-slate-700 mb-1">Forme Juridique &amp; Capital Social *</label>
+                            <input type="text" name="forme_juridique" value="{{ etablissement.forme_juridique }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 font-bold text-slate-900">
                         </div>
-                        <div class="text-right">
-                            <div class="text-xs text-slate-300">Total Net à Payer TTC :</div>
-                            <div id="simNetResult" class="text-xl font-extrabold text-emerald-400">45525.00 DA</div>
+                        <div class="sm:col-span-2">
+                            <label class="block font-bold text-slate-700 mb-1">Adresse Fiscale Complète *</label>
+                            <input type="text" name="adresse_complete" value="{{ etablissement.adresse_complete }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Wilaya *</label>
+                            <input type="text" name="wilaya" value="{{ etablissement.wilaya }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 font-bold text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Téléphone Officiel *</label>
+                            <input type="text" name="telephone" value="{{ etablissement.telephone }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 font-bold text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-hospital-700 mb-1">N.I.F (Identification Fiscale DGI - 15/20 ch.) *</label>
+                            <input type="text" name="nif" value="{{ etablissement.nif }}" required class="w-full rounded-xl border border-hospital-300 bg-hospital-50/30 px-3 py-2 font-mono font-extrabold text-hospital-900">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">N.I.S (Identification Statistique ONS - 15 ch.) *</label>
+                            <input type="text" name="nis" value="{{ etablissement.nis }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-extrabold text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">N° Registre de Commerce (CNRC) *</label>
+                            <input type="text" name="rc" value="{{ etablissement.rc }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-extrabold text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Article d'Imposition (A.I - 11 ch.) *</label>
+                            <input type="text" name="article_imposition" value="{{ etablissement.article_imposition }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-extrabold text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">RIB Bancaire / RIP CCP</label>
+                            <input type="text" name="rib_bancaire" value="{{ etablissement.rib_bancaire }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-teal-700 mb-1">N° Convention / Agrément CNAS</label>
+                            <input type="text" name="numero_convention_cnas" value="{{ etablissement.numero_convention_cnas }}" class="w-full rounded-xl border border-teal-300 px-3 py-2 font-mono font-bold text-teal-900">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Exercice Fiscal Actif</label>
+                            <input type="number" name="exercice_fiscal_courant" value="{{ etablissement.exercice_fiscal_courant }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-extrabold text-slate-900">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white font-extrabold shadow-xs transition-colors">
+                                💾 Enregistrer le Paramétrage Fiscal DGI
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Simulateur interactif du Droit de Timbre Algérien & Raccourcis Paramétrage -->
+                <div class="lg:col-span-5 space-y-5">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                        <div>
+                            <h2 class="text-base font-extrabold text-slate-900">
+                                🧮 Simulateur du Droit de Timbre Algérien (Code du Timbre / Loi de Finances)
+                            </h2>
+                            <p class="text-xs text-slate-500">
+                                Vérifiez en direct le calcul du Droit de Timbre selon le mode de paiement (Espèces vs CIB / Edahabia / Chèque / Virement).
+                            </p>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Montant TTC hors timbre (DA)</label>
+                                <input
+                                    type="number"
+                                    id="simMontantInput"
+                                    value="45000"
+                                    oninput="runTimbreSimulation()"
+                                    class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-extrabold text-slate-900"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Mode de règlement</label>
+                                <select id="simModeSelect" onchange="runTimbreSimulation()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                                    {% for code, lbl in modes_paiement %}
+                                    <option value="{{ code }}">{{ lbl }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-slate-900 text-white flex items-center justify-between">
+                            <div>
+                                <div class="text-xs text-slate-300">Droit de Timbre calculé :</div>
+                                <div id="simTimbreResult" class="text-xl font-extrabold text-amber-400">525.00 DA</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs text-slate-300">Total Net à Payer TTC :</div>
+                                <div id="simNetResult" class="text-xl font-extrabold text-emerald-400">45525.00 DA</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-3">
+                        <h3 class="text-sm font-extrabold text-slate-900">🔗 Autres Paramétrages de la Facturation</h3>
+                        <div class="grid grid-cols-1 gap-2">
+                            <button type="button" onclick="switchBillTab('ngap_retro')" class="text-left p-3 rounded-xl border border-slate-200 hover:border-hospital-400 bg-slate-50 flex items-center justify-between text-xs font-bold">
+                                <span>🩺 Paramétrer les Actes NGAP, Tarifs Clinique, TVA &amp; % Rétrocession Médecins</span>
+                                <span>&rarr;</span>
+                            </button>
+                            <button type="button" onclick="switchBillTab('tiers_payant')" class="text-left p-3 rounded-xl border border-slate-200 hover:border-teal-400 bg-slate-50 flex items-center justify-between text-xs font-bold">
+                                <span>🏛️ Paramétrer les Organismes Tiers-Payant (CNAS, CASNOS, Mutuelles, Assurances)</span>
+                                <span>&rarr;</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -909,6 +1193,53 @@
             });
         }
         switchBillTab('{{ active_tab|default:"factures"|escapejs }}');
+
+        function prefillNgapForm(code, libelle, typeActe, lettreCle, coeff, refCnas, tarifClinique, tva, retro, remb) {
+            document.getElementById('ngapFormCode').value = code;
+            document.getElementById('ngapFormLibelle').value = libelle;
+            document.getElementById('ngapFormType').value = typeActe;
+            document.getElementById('ngapFormLettre').value = lettreCle;
+            document.getElementById('ngapFormCoeff').value = coeff;
+            document.getElementById('ngapFormRefCnas').value = refCnas;
+            document.getElementById('ngapFormTarifClinique').value = tarifClinique;
+            document.getElementById('ngapFormTva').value = tva;
+            document.getElementById('ngapFormRetro').value = retro;
+            document.getElementById('ngapFormRemboursable').value = remb;
+            document.getElementById('ngapFormCode').focus();
+        }
+
+        function shareInvoiceWhatsApp(num, patient, totalTtc, partCaisse, netPatient, printPath) {
+            const fullUrl = window.location.origin + printPath;
+            const text = "🏥 *Clinique Sidi Yahia 2 — Facture " + num + "*\n" +
+                "👤 Patient : " + patient + "\n" +
+                "💰 Total TTC : " + totalTtc + " DA\n" +
+                "🏛️ Part Tiers-Payant (CNAS/CASNOS) : " + partCaisse + " DA\n" +
+                "💳 Net à payer Patient : " + netPatient + " DA\n" +
+                "📄 Consulter / Imprimer : " + fullUrl;
+            window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+        }
+
+        function shareInvoiceEmail(num, patient, totalTtc, partCaisse, netPatient, printPath) {
+            const fullUrl = window.location.origin + printPath;
+            const subject = "Facture Hospitalière " + num + " — " + patient + " (Clinique Sidi Yahia 2)";
+            const body = "Bonjour,\n\nVeuillez trouver ci-dessous le récapitulatif de la facture hospitalière " + num + " :\n\n" +
+                "- Patient : " + patient + "\n" +
+                "- Montant Total TTC : " + totalTtc + " DA\n" +
+                "- Part Organisme Tiers-Payant (CNAS/CASNOS) : " + partCaisse + " DA\n" +
+                "- Net à payer par le patient : " + netPatient + " DA\n\n" +
+                "Lien d'impression de la facture réglementaire : " + fullUrl + "\n\nCordialement,\nService Facturation — Clinique Sidi Yahia 2";
+            window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+        }
+
+        function copyInvoiceLink(btn, printPath) {
+            const fullUrl = window.location.origin + printPath;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(fullUrl);
+            }
+            const oldText = btn.textContent;
+            btn.textContent = "✔ Lien copié !";
+            setTimeout(() => { btn.textContent = oldText; }, 2000);
+        }
 
         function runTimbreSimulation() {
             const m = document.getElementById('simMontantInput').value || '0';

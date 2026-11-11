@@ -1,6 +1,8 @@
 """Routage pour le socle transversal (Core) et Gestion Dynamique des Statuts Patients."""
 from django.urls import path
 from .views import (
+    ExportPatientsExcelView,
+    ImportPatientsExcelView,
     PatientListView,
     WeeklyDashboardView,
     admission_consent_pdf_view,
@@ -23,8 +25,10 @@ urlpatterns = [
     path("beds/<int:pk>/quick-status/", quick_bed_status_action_view, name="quick_bed_status"),
     path("replacements/<int:pk>/quick-validate/", quick_replacement_validation_view, name="quick_replacement_validate"),
 
-    # Liste des Patients, Recherche & Gestion Dynamique des Statuts
+    # Liste des Patients, Recherche, Import/Export Excel & Gestion Dynamique des Statuts
     path("patients/", PatientListView.as_view(), name="patient_list"),
+    path("patients/export/excel/", ExportPatientsExcelView.as_view(), name="export_patients_excel"),
+    path("patients/import/excel/", ImportPatientsExcelView.as_view(), name="import_patients_excel"),
     path("patients/<int:pk>/change-status/", patient_change_status_view, name="patient_change_status"),
     path("patients/<int:pk>/consent-pdf/", patient_consent_pdf_view, name="patient_consent_pdf"),
     path("admissions/<int:pk>/consent-pdf/", admission_consent_pdf_view, name="admission_consent_pdf"),

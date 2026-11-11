@@ -113,7 +113,7 @@ class EtablissementFiscal(AuditableModel):
 
     raison_sociale = models.CharField(
         max_length=200,
-        default="EURL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2",
+        default="SARL CLINIQUE MÉDICO-CHIRURGICALE SIDI YAHIA 2",
         verbose_name="Raison sociale officielle",
     )
     type_etablissement = models.CharField(
@@ -124,7 +124,7 @@ class EtablissementFiscal(AuditableModel):
     )
     forme_juridique = models.CharField(
         max_length=50,
-        default="EURL au capital social de 50 000 000,00 DA",
+        default="SARL au capital social de 50 000 000,00 DA",
         verbose_name="Forme juridique & Capital social",
     )
     adresse_complete = models.CharField(
