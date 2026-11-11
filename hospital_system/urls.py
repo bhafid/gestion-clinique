@@ -13,7 +13,12 @@ from django.http import Http404
 from django.urls import include, path, re_path
 from django.views.static import serve
 
-from apps.core.views import HospitalLoginView, WeeklyDashboardView, hospital_logout_view
+from apps.core.views import (
+    ClinicSettingsView,
+    HospitalLoginView,
+    WeeklyDashboardView,
+    hospital_logout_view,
+)
 
 
 def serve_static_with_fallback(request, path: str):
@@ -52,8 +57,9 @@ urlpatterns = [
     path("admin/login/", HospitalLoginView.as_view(), name="admin_login"),
     path("admin/logout/", hospital_logout_view, name="admin_logout"),
 
-    # Tableau de bord hebdomadaire (Accueil protégé)
+    # Tableau de bord hebdomadaire (Accueil protégé) & Paramètres de la Clinique
     path("", WeeklyDashboardView.as_view(), name="home_dashboard"),
+    path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic_settings_root"),
     
     # Interface d'Administration Sécurisée
     path("admin/", admin.site.urls),
