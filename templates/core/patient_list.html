@@ -75,6 +75,14 @@
                     </button>
                     {% endif %}
 
+                    <a href="{% url 'facturation:dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                        🧾 Facturation DZ
+                    </a>
+
+                    <a href="{% url 'pharmacie:dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors">
+                        💊 Pharmacie &amp; Stocks
+                    </a>
+
                     <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors">
                         &larr; Tableau de Bord
                     </a>

@@ -64,6 +64,8 @@ urlpatterns = [
     path("maternite/", include("apps.gynecologie_maternite.urls", namespace="gynecologie_maternite")),
     path("pediatrie/", include("apps.pediatrie.urls", namespace="pediatrie")),
     path("urologie/", include("apps.urologie.urls", namespace="urologie")),
+    path("pharmacie/", include("apps.pharmacie.urls", namespace="pharmacie")),
+    path("facturation/", include("apps.facturation.urls", namespace="facturation")),
 
     # Service direct des fichiers statiques (Logo, CSS/JS Admin) même via Gunicorn (:8000)
     re_path(r"^static/(?P<path>.*)$", serve_static_with_fallback),

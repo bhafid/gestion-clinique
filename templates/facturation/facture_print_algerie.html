@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Facture Officielle {{ facture.numero_facture }} — {{ etablissement.raison_sociale }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #ffffff !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 py-8 px-4 text-slate-900">
+
+    <!-- Barre d'actions écran uniquement -->
+    <div class="max-w-4xl mx-auto mb-4 flex items-center justify-between no-print">
+        <a href="{% url 'facturation:dashboard' %}" class="px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50">
+            &larr; Retour au Cockpit Facturation
+        </a>
+        <button onclick="window.print()" class="px-5 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-xs font-extrabold shadow-sm">
+            🖨️ Imprimer / Enregistrer en PDF Réglementaire
+        </button>
+    </div>
+
+    <!-- Feuille A4 de Facture Réglementaire Algérienne -->
+    <div class="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-300 shadow-sm p-8 space-y-6">
+
+        <!-- 1. EN-TÊTE LÉGAL ET FISCAL ALGÉRIEN (NIF, NIS, RC, AI) -->
+        <div class="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-slate-900 pb-5">
+            <div class="flex items-start gap-4">
+                <div class="w-24 h-28 rounded-xl border border-slate-200 p-1.5 flex items-center justify-center shrink-0">
+                    <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="h-full w-auto object-contain">
+                </div>
+                <div>
+                    <div class="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
+                        République Algérienne Démocratique et Populaire
+                    </div>
+                    <h1 class="text-lg font-extrabold text-slate-900 mt-0.5">
+                        {{ etablissement.raison_sociale }}
+                    </h1>
+                    <p class="text-xs text-slate-600">{{ etablissement.forme_juridique }}</p>
+                    <p class="text-xs text-slate-600">{{ etablissement.adresse_complete }} &bull; Tél : {{ etablissement.telephone }}</p>
+                    <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] font-mono bg-slate-50 p-2 rounded-lg border border-slate-200">
+                        <div><strong>N.I.F :</strong> {{ etablissement.nif }}</div>
+                        <div><strong>N.I.S :</strong> {{ etablissement.nis }}</div>
+                        <div><strong>N° R.C :</strong> {{ etablissement.rc }}</div>
+                        <div><strong>A.I :</strong> {{ etablissement.article_imposition }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-right shrink-0">
+                <div class="inline-block px-3.5 py-1.5 rounded-xl bg-slate-900 text-white font-extrabold text-sm">
+                    FACTURE DE SOINS &amp; D'HOSPITALISATION
+                </div>
+                <div class="mt-2 font-mono text-base font-extrabold text-sky-800">
+                    N° : {{ facture.numero_facture }}
+                </div>
+                <div class="text-xs text-slate-500">
+                    Date d'émission : <strong>{{ facture.date_emission|date:"d/m/Y à H:i" }}</strong>
+                </div>
+                <div class="text-xs text-slate-500">
+                    Agrément CNAS : <strong>{{ etablissement.numero_convention_cnas }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. IDENTITÉ DU PATIENT & PRISE EN CHARGE TIERS-PAYANT (CNAS / CASNOS) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+            <div>
+                <div class="text-[10px] font-extrabold uppercase text-slate-400">Informations Patient</div>
+                <div class="font-extrabold text-sm text-slate-900 mt-0.5">{{ facture.patient.full_name }}</div>
+                <div>Identifiant Patient (IPP) : <strong class="font-mono">{{ facture.patient.ipp }}</strong></div>
+                <div>Date de naissance : <strong>{{ facture.patient.birth_date|date:"d/m/Y" }}</strong></div>
+                <div>Type de dossier : <strong>{{ facture.get_type_prise_en_charge_display }}</strong></div>
+            </div>
+            <div>
+                <div class="text-[10px] font-extrabold uppercase text-slate-400">Organisme Tiers-Payant / Couverture Sociale</div>
+                {% if facture.convention %}
+                <div class="font-extrabold text-sm text-teal-800 mt-0.5">{{ facture.convention.organisme.nom }}</div>
+                <div>N° Immatriculation Assuré (Chifa) : <strong class="font-mono">{{ facture.convention.numero_immatriculation_assure }}</strong></div>
+                <div>N° Accord PEC : <strong>{{ facture.convention.numero_accord_pec|default:"Standard" }}</strong></div>
+                <div>Taux de prise en charge : <strong>{{ facture.convention.taux_prise_en_charge_pct }} %</strong></div>
+                {% else %}
+                <div class="font-bold text-slate-700 mt-1">Paiement Direct Patient (Sans Tiers-Payant)</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 3. DÉTAIL DES ACTES MÉDICAUX (NGAP ALGÉRIE) & SÉJOUR -->
+        <div>
+            <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2">
+                I. Actes Médicaux, Chirurgicaux (Nomenclature NGAP Algérie) &amp; Frais de Séjour
+            </h2>
+            <table class="min-w-full border border-slate-300 text-xs">
+                <thead class="bg-slate-100 text-[10px] font-extrabold uppercase text-slate-700">
+                    <tr>
+                        <th class="border border-slate-300 px-2.5 py-2 text-left">Code NGAP &amp; Désignation</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-center">Clé &times; Coeff</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-center">Qté</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-right">P.U HT (DA)</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-center">TVA</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-right">Montant TTC</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-right">Part Caisse</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-right">Part Patient</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for la in facture.lignes_actes.all %}
+                    <tr>
+                        <td class="border border-slate-300 px-2.5 py-2">
+                            <strong>[{{ la.acte.code_ngap }}]</strong> {{ la.acte.libelle }}
+                        </td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-center font-mono">{{ la.lettre_cle }}&times;{{ la.coefficient }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-center font-bold">{{ la.quantite }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-right">{{ la.prix_unitaire_clinique_ht_da }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-center">{{ la.taux_tva }}%</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-right font-bold">{{ la.montant_ttc_da }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-right text-teal-800">{{ la.part_organisme_da }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-right font-bold">{{ la.part_patient_da }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 4. DÉTAIL DES MÉDICAMENTS AU PPA & CONSOMMABLES (TRAÇABILITÉ LOT FEFO) -->
+        <div>
+            <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2">
+                II. Consommation de Produits Pharmaceutiques (Tarif PPA Réglementé) &amp; Consommables
+            </h2>
+            <table class="min-w-full border border-slate-300 text-xs">
+                <thead class="bg-slate-100 text-[10px] font-extrabold uppercase text-slate-700">
+                    <tr>
+                        <th class="border border-slate-300 px-2.5 py-2 text-left">Médicament / DCI / Code CIP13</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-center">N° Lot (FEFO)</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-center">Qté</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-right">PPA HT (DA)</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-center">TVA</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-right">Montant TTC</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-right">Part Caisse</th>
+                        <th class="border border-slate-300 px-2.5 py-2 text-right">Part Patient</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lp in facture.lignes_pharmacie.all %}
+                    <tr>
+                        <td class="border border-slate-300 px-2.5 py-2">
+                            <strong>{{ lp.produit.nom_commercial }} {{ lp.produit.dosage }}</strong> ({{ lp.produit.dci }})
+                        </td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-center font-mono">{{ lp.lot_sorti.numero_lot|default:"FEFO" }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-center font-bold">{{ lp.quantite }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-right">{{ lp.tarif_ppa_unitaire_ht_da }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-center">{{ lp.taux_tva }}%</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-right font-bold">{{ lp.montant_ttc_da }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-right text-teal-800">{{ lp.part_organisme_da }}</td>
+                        <td class="border border-slate-300 px-2.5 py-2 text-right font-bold">{{ lp.part_patient_da }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="border border-slate-300 px-2.5 py-2 text-center text-slate-400">Aucun produit pharmaceutique facturé.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 5. RÉCAPITULATIF FISCAL ALGÉRIEN (HT, TVA 9%, TVA 19%, TIMBRE, TIERS-PAYANT) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+                <div class="font-extrabold uppercase text-slate-600">Arrêté de la Facture en Toutes Lettres :</div>
+                <p class="font-bold text-slate-900 italic">
+                    « Arrêtée la présente facture à la somme de : {{ facture.montant_en_toutes_lettres }} »
+                </p>
+                <div class="pt-2 text-[11px] text-slate-500">
+                    <strong>Note fiscale Droit de Timbre (Art. 100 Code du Timbre) :</strong><br>
+                    &bull; Règlement par Carte CIB, Edahabia, Chèque ou Virement : <strong>Exonéré (0,00 DA)</strong>.<br>
+                    &bull; Règlement en Espèces : Droit de timbre légal applicable ({{ timbre_simulation_especes }} DA sur la part patient).
+                </div>
+            </div>
+
+            <div class="border border-slate-300 rounded-xl p-4 space-y-1.5 text-xs">
+                <div class="flex justify-between">
+                    <span>Total Général Hors Taxes (HT) :</span>
+                    <span class="font-bold">{{ facture.montant_total_ht_da }} DA</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>TVA Taux Réduit Médical (9 %) :</span>
+                    <span>{{ facture.montant_tva_9_da }} DA</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>TVA Taux Normal (19 %) :</span>
+                    <span>{{ facture.montant_tva_19_da }} DA</span>
+                </div>
+                <div class="flex justify-between border-t border-slate-300 pt-1.5 font-extrabold text-sm">
+                    <span>Montant Total TTC (Hors Timbre) :</span>
+                    <span>{{ facture.montant_total_ttc_da }} DA</span>
+                </div>
+                <div class="flex justify-between text-teal-800 font-bold pt-1">
+                    <span>Part Organisme Tiers-Payant (CNAS/CASNOS) :</span>
+                    <span>- {{ facture.part_organisme_tiers_payant_da }} DA</span>
+                </div>
+                <div class="flex justify-between text-slate-900 font-bold">
+                    <span>Ticket Modérateur &amp; Part Patient TTC :</span>
+                    <span>{{ facture.part_patient_ticket_moderateur_da }} DA</span>
+                </div>
+                <div class="flex justify-between text-slate-600">
+                    <span>Droit de Timbre Fiscal (si Espèces) :</span>
+                    <span>+ {{ facture.droit_timbre_da }} DA</span>
+                </div>
+                <div class="flex justify-between border-t-2 border-slate-900 pt-2 text-base font-extrabold text-slate-900">
+                    <span>NET À PAYER PAR LE PATIENT :</span>
+                    <span>{{ facture.net_a_payer_patient_da }} DA</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. BLOC CACHET HUMIDE & SIGNATURES -->
+        <div class="grid grid-cols-2 gap-8 pt-6 border-t border-slate-200 text-xs">
+            <div>
+                <div class="font-bold text-slate-700">Signature du Patient (ou Assuré Social) :</div>
+                <div class="h-20 mt-2 border border-dashed border-slate-300 rounded-xl"></div>
+            </div>
+            <div class="text-right">
+                <div class="font-bold text-slate-700">Cachet Humide &amp; Signature de la Clinique :</div>
+                <div class="h-20 mt-2 border border-dashed border-slate-300 rounded-xl flex items-center justify-center text-slate-400 font-semibold">
+                    {{ etablissement.raison_sociale }} — NIF {{ etablissement.nif }}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

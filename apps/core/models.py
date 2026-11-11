@@ -529,6 +529,10 @@ class Patient(AuditableModel):
     def __str__(self) -> str:
         return f"{self.last_name.upper()} {self.first_name} (IPP: {self.ipp})"
 
+    @property
+    def full_name(self) -> str:
+        return f"{self.last_name.upper()} {self.first_name}"
+
     def save(self, *args, **kwargs) -> None:
         """
         Génération automatique de l'IPP hospitalier et affectation du statut initial 'Admission'

@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="fr" class="min-h-screen bg-slate-50" id="htmlRoot">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion de Stock Pharmaceutique &amp; Achats — Clinique Sidi Yahia 2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-variant-numeric: tabular-nums;
+        }
+        html.dark body { background-color: #0f172a; color: #f1f5f9; }
+        html.dark .cockpit-card { background-color: #1e293b !important; border-color: #334155 !important; color: #f1f5f9 !important; }
+        html.dark .cockpit-subcard { background-color: #0f172a !important; border-color: #334155 !important; }
+        html.dark .text-slate-900, html.dark .text-slate-800 { color: #f8fafc !important; }
+        html.dark .text-slate-700, html.dark .text-slate-600 { color: #cbd5e1 !important; }
+        html.dark .text-slate-500 { color: #94a3b8 !important; }
+        html.dark header { background-color: #0f172a !important; border-color: #1e293b !important; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800 antialiased selection:bg-hospital-600 selection:text-white transition-colors duration-200">
+
+    <!-- =================================================================== -->
+    <!-- EN-TÊTE DU MODULE PHARMACIE HOSPITALIÈRE & ACHATS                   -->
+    <!-- =================================================================== -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+            <div class="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-3.5">
+                <div class="flex items-center gap-4 sm:gap-5 min-w-0">
+                    <a href="{% url 'home_dashboard' %}" class="w-24 h-28 sm:w-28 sm:h-32 rounded-2xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shadow-sm shrink-0 hover:border-hospital-500 transition-colors">
+                        <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="h-full w-auto object-contain">
+                    </a>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                                Pharmacie Hospitalière &amp; Gestion des Achats
+                            </h1>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                                Rotation Stricte FEFO &bull; Calcul PMP
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                Traçabilité Stupéfiants &amp; HDS
+                            </span>
+                        </div>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                            Clinique Sidi Yahia 2 &bull; Pilotage des Stocks par Lots, Prévention des Péremptions, Commandes Grossistes &amp; Réception Douchette CIP13/EAN13
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Actions & Navigation -->
+                <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 xl:justify-end">
+                    <!-- Lecteur Douchette Code-Barres Global -->
+                    <div class="relative w-full sm:w-72">
+                        <input
+                            type="text"
+                            id="globalBarcodeInput"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();triggerBarcodeLookup(this.value);}"
+                            placeholder="Scanner code-barres CIP13 / EAN13 + Entrée..."
+                            class="w-full rounded-xl border border-teal-300 bg-teal-50/40 pl-9 pr-3 py-2 text-xs font-semibold text-slate-800 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none"
+                        >
+                        <span class="absolute left-3 top-2 text-sm" title="Douchette Code-Barres">🔫</span>
+                    </div>
+
+                    <button
+                        type="button"
+                        onclick="toggleNightShiftMode()"
+                        class="inline-flex items-center px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors"
+                    >
+                        <span id="nightModeIcon">🌙</span>
+                        <span class="ml-1.5" id="nightModeLabel">Mode Nuit</span>
+                    </button>
+
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
+                        <span class="text-xs font-bold text-slate-900">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border {{ role_config.badge_class }}">
+                            {{ request.user.get_role_display }}
+                        </span>
+                    </div>
+
+                    <a href="{% url 'facturation:dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                        🧾 Facturation DZ
+                    </a>
+
+                    <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-bold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors cockpit-card">
+                        &larr; Cockpit Supervision
+                    </a>
+
+                    <a href="{% url 'core:patient_list' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-hospital-600 text-white hover:bg-hospital-700 transition-colors">
+                        Suivi Patients
+                    </a>
+
+                    <a href="/admin/pharmacie/" class="inline-flex items-center px-3 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors cockpit-card">
+                        Admin Pharmacie
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+
+        <!-- Messages Flash -->
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between
+                {% if message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full {% if message.tags == 'error' %}bg-rose-500{% else %}bg-emerald-500{% endif %}"></span>
+                    <span>{{ message }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Zone de résultat instantané du Scan Douchette Code-Barres -->
+        <div id="barcodeScanResultBanner" class="hidden p-4 rounded-2xl bg-teal-900 text-white shadow-lg border border-teal-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded bg-teal-500/30 border border-teal-400 text-[11px] font-extrabold uppercase">Scan Douchette CIP13 / EAN13</span>
+                    <span id="scanResCode" class="font-mono text-xs text-teal-200"></span>
+                </div>
+                <h3 id="scanResTitle" class="text-base font-extrabold mt-1"></h3>
+                <p id="scanResDetails" class="text-xs text-teal-100 mt-0.5"></p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" id="scanBtnDispense" class="px-3.5 py-2 rounded-xl bg-white text-teal-900 font-extrabold text-xs hover:bg-teal-50">
+                    Sortie FEFO Rapide
+                </button>
+                <button type="button" onclick="document.getElementById('barcodeScanResultBanner').classList.add('hidden')" class="px-2.5 py-2 rounded-xl border border-teal-600 text-teal-200 text-xs hover:bg-teal-800">
+                    Fermer
+                </button>
+            </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- SECTION 1 : TABLEAU DE BORD STOCK & ACHATS (4 KPIs CLÉS)        -->
+        <!-- =============================================================== -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- KPI 1 : Valeur Totale du Stock (PMP HT) -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Valeur Totale du Stock (PMP HT)</span>
+                    <div class="text-2xl font-extrabold text-slate-900 mt-1">{{ valeur_totale_stock_ht }} €</div>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Sur <strong class="text-slate-700">{{ nb_produits_total }}</strong> références pharmaceutiques actives
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-hospital-50 border border-hospital-100 text-hospital-600 flex items-center justify-center text-xl shrink-0">
+                    💶
+                </div>
+            </div>
+
+            <!-- KPI 2 : Produits en Alerte Rupture -->
+            <div class="bg-white rounded-2xl border {% if nb_produits_alerte_rupture > 0 %}border-rose-300 bg-rose-50/20{% else %}border-slate-200{% endif %} p-4 shadow-xs cockpit-card flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-rose-600">Produits en Alerte Rupture</span>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <span class="text-2xl font-extrabold text-rose-600">{{ nb_produits_alerte_rupture }}</span>
+                        <span class="text-xs font-semibold text-slate-500">dont {{ nb_produits_critiques_rouge }} critique(s)</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Stock Actuel &le; Seuil d'alerte &bull;
+                        <button type="button" onclick="switchPharmTab('achats')" class="text-hospital-600 font-bold underline">Commander</button>
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center text-xl shrink-0">
+                    🚨
+                </div>
+            </div>
+
+            <!-- KPI 3 : Lots Proches de la Péremption (< 3 mois) -->
+            <div class="bg-white rounded-2xl border {% if nb_lots_proche_peremption > 0 %}border-amber-300 bg-amber-50/20{% else %}border-slate-200{% endif %} p-4 shadow-xs cockpit-card flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Lots Proches Péremption (&lt; 3 mois)</span>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <span class="text-2xl font-extrabold text-amber-600">{{ nb_lots_proche_peremption }}</span>
+                        <span class="text-xs font-semibold text-rose-600">+ {{ nb_lots_perimes_quarantaine }} isolé(s)/périmé(s)</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Priorisés automatiquement en sortie <strong>FEFO</strong>
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0">
+                    ⏳
+                </div>
+            </div>
+
+            <!-- KPI 4 : Commandes en Attente de Réception -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-teal-700">Commandes en Attente Réception</span>
+                    <div class="text-2xl font-extrabold text-teal-700 mt-1">{{ nb_commandes_en_attente }}</div>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Livraisons grossistes à pointer &bull;
+                        <button type="button" onclick="switchPharmTab('reception')" class="text-teal-700 font-bold underline">Réceptionner</button>
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center text-xl shrink-0">
+                    📦
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- BARRE D'ONGLETS OPÉRATIONNELS DU MODULE PHARMACIE               -->
+        <!-- =============================================================== -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs cockpit-card flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-1.5">
+                <button
+                    type="button"
+                    onclick="switchPharmTab('catalogue')"
+                    id="tabBtn-catalogue"
+                    class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2"
+                >
+                    <span>💊</span>
+                    <span>1. Catalogue &amp; État des Stocks (FEFO)</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] bg-slate-200/70 text-slate-800">{{ nb_produits_total }}</span>
+                </button>
+
+                <button
+                    type="button"
+                    onclick="switchPharmTab('achats')"
+                    id="tabBtn-achats"
+                    class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2"
+                >
+                    <span>🛒</span>
+                    <span>2. Suggestions &amp; Bons de Commande</span>
+                    {% if suggestions_reappro %}
+                    <span class="px-2 py-0.5 rounded-full text-[10px] bg-rose-600 text-white">{{ suggestions_reappro|length }} à commander</span>
+                    {% endif %}
+                </button>
+
+                <button
+                    type="button"
+                    onclick="switchPharmTab('reception')"
+                    id="tabBtn-reception"
+                    class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2"
+                >
+                    <span>🔫</span>
+                    <span>3. Réception Livraisons (Douchette &amp; PMP)</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] bg-teal-600 text-white">{{ nb_commandes_en_attente }}</span>
+                </button>
+
+                <button
+                    type="button"
+                    onclick="switchPharmTab('inventaire')"
+                    id="tabBtn-inventaire"
+                    class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2"
+                >
+                    <span>📋</span>
+                    <span>4. Inventaire Tournant &amp; Audit Stupéfiants</span>
+                </button>
+            </div>
+
+            <div class="flex items-center gap-2 pr-2">
+                <button
+                    type="button"
+                    onclick="openFefoModal('', '', '')"
+                    class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold shadow-xs transition-colors"
+                >
+                    + Sortie de Stock FEFO
+                </button>
+            </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- ONGLET 1 : CATALOGUE & ÉTAT DES STOCKS (FEFO + LOTS DÉPLIABLES) -->
+        <!-- =============================================================== -->
+        <section id="tabPanel-catalogue" class="space-y-4">
+            <!-- Filtres et Recherche -->
+            <form method="get" action="/pharmacie/" class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card">
+                <input type="hidden" name="tab" value="catalogue">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div class="md:col-span-5">
+                        <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                            Recherche (Nom commercial, DCI, Code CIP/EAN13, N° de Lot)
+                        </label>
+                        <input
+                            type="text"
+                            name="q"
+                            value="{{ q_search }}"
+                            placeholder="Ex: Perfalgan, Amoxicilline, 3400935955838, PERF-2026..."
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900 focus:border-hospital-600 focus:outline-none"
+                        >
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Catégorie réglementaire</label>
+                        <select name="categorie" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">
+                            <option value="">Toutes les catégories</option>
+                            {% for code, label in categories_choices %}
+                            <option value="{{ code }}" {% if f_categorie == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Niveau d'urgence</label>
+                        <select name="urgence" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">
+                            <option value="">Tous les statuts</option>
+                            <option value="ROUGE" {% if f_urgence == 'ROUGE' %}selected{% endif %}>🔴 Rouge (Rupture / Critique)</option>
+                            <option value="ORANGE" {% if f_urgence == 'ORANGE' %}selected{% endif %}>🟠 Orange (Sous seuil min)</option>
+                            <option value="VERT" {% if f_urgence == 'VERT' %}selected{% endif %}>🟢 Vert (Stock OK)</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2 flex gap-2">
+                        <button type="submit" class="flex-1 py-2 px-3 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white text-xs font-bold">
+                            Filtrer
+                        </button>
+                        <a href="/pharmacie/?tab=catalogue" class="py-2 px-3 rounded-xl border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50">
+                            Reset
+                        </a>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Tableau Catalogue avec Accordéon Lots FEFO -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cockpit-card">
+                <div class="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-900">
+                            Catalogue des Produits Pharmaceutiques &amp; Traçabilité par Numéro de Lot (FEFO)
+                        </h2>
+                        <p class="text-xs text-slate-500">
+                            Cliquez sur <strong>« Voir Lots FEFO »</strong> pour déplier les lots, vérifier les dates de péremption ou isoler un lot en quarantaine.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2 text-[11px] font-bold">
+                        <span class="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">🔴 Critique / Périmé</span>
+                        <span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">🟠 Seuil bas / Péremption &lt; 3 mois</span>
+                        <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 Conforme</span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200 text-xs">
+                        <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-extrabold tracking-wider">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Produit / DCI / Code CIP13</th>
+                                <th class="px-4 py-3 text-left">Catégorie &amp; Emplacement</th>
+                                <th class="px-4 py-3 text-center">Stock Dispo (FEFO)</th>
+                                <th class="px-4 py-3 text-center">Seuils (Séc / Min / Max)</th>
+                                <th class="px-4 py-3 text-right">PMP HT / Vente TTC</th>
+                                <th class="px-4 py-3 text-center">Statut Urgence</th>
+                                <th class="px-4 py-3 text-right">Actions &amp; Lots</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200">
+                            {% for prod in produits %}
+                            <tr class="hover:bg-slate-50/80 transition-colors">
+                                <td class="px-4 py-3.5">
+                                    <div class="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                                        <span>{{ prod.nom_commercial }}</span>
+                                        <span class="text-xs font-semibold text-hospital-700">{{ prod.dosage }}</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500 mt-0.5">
+                                        DCI : <strong class="text-slate-700">{{ prod.dci }}</strong> &bull; {{ prod.forme_galenique }}
+                                    </div>
+                                    <div class="font-mono text-[11px] text-slate-400 mt-0.5">
+                                        CIP/EAN13 : {{ prod.code_cip_ean13 }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3.5">
+                                    {% if prod.categorie == 'STUPEFIANT_CONTROLE' %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-300">
+                                        🔒 {{ prod.get_categorie_display }}
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                        {{ prod.get_categorie_display }}
+                                    </span>
+                                    {% endif %}
+                                    <div class="text-[11px] text-slate-500 mt-1">
+                                        📍 {{ prod.rayon_par_defaut }}
+                                    </div>
+                                    {% if prod.fournisseur_prefere %}
+                                    <div class="text-[10px] text-slate-400">
+                                        Fournisseur : {{ prod.fournisseur_prefere.nom }}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3.5 text-center">
+                                    <span class="text-lg font-extrabold {% if prod.statut_urgence_ui == 'ROUGE' %}text-rose-600{% elif prod.statut_urgence_ui == 'ORANGE' %}text-amber-600{% else %}text-emerald-600{% endif %}">
+                                        {{ prod.stock_actuel }}
+                                    </span>
+                                    <div class="text-[10px] text-slate-400">unités valides</div>
+                                </td>
+                                <td class="px-4 py-3.5 text-center">
+                                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold text-[11px]">
+                                        <span class="text-rose-600" title="Stock de sécurité">{{ prod.stock_securite }}</span> /
+                                        <span class="text-amber-600" title="Seuil d'alerte">{{ prod.stock_minimum }}</span> /
+                                        <span class="text-emerald-700" title="Stock maximum">{{ prod.stock_maximum }}</span>
+                                    </div>
+                                    {% if prod.quantite_suggeree_commande > 0 %}
+                                    <div class="text-[10px] font-bold text-rose-600 mt-1">
+                                        À commander : +{{ prod.quantite_suggeree_commande }} u.
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3.5 text-right">
+                                    <div class="font-bold text-slate-900">PMP : {{ prod.prix_moyen_pondere_ht }} € HT</div>
+                                    <div class="text-[11px] text-slate-500">Vente : {{ prod.prix_vente_ttc }} € TTC</div>
+                                    <div class="text-[10px] text-teal-700 font-semibold">Val. Stock : {{ prod.valeur_stock_ht }} €</div>
+                                </td>
+                                <td class="px-4 py-3.5 text-center">
+                                    {% if prod.statut_urgence_ui == 'ROUGE' %}
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300">
+                                        🔴 Rupture / Critique
+                                    </span>
+                                    {% elif prod.statut_urgence_ui == 'ORANGE' %}
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
+                                        🟠 Sous Seuil Alerte
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                        🟢 Stock Nominal
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3.5 text-right space-x-1.5 whitespace-nowrap">
+                                    <button
+                                        type="button"
+                                        onclick="toggleProductLots('lots-row-{{ prod.id }}')"
+                                        class="px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs transition-colors"
+                                    >
+                                        🔽 Voir Lots FEFO ({{ prod.lots.count }})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onclick="openFefoModal('{{ prod.id }}', '{{ prod.nom_commercial|escapejs }} ({{ prod.dosage|escapejs }})', '{{ prod.stock_actuel }}')"
+                                        class="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs transition-colors"
+                                    >
+                                        Sortie FEFO
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Sous-ligne dépliable : Détail des Lots triés par FEFO -->
+                            <tr id="lots-row-{{ prod.id }}" class="bg-slate-50/90 hidden cockpit-subcard">
+                                <td colspan="7" class="px-6 py-4">
+                                    <div class="rounded-xl border border-slate-200 bg-white p-4 cockpit-card">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                                                <span>📦 Lots en stock pour {{ prod.nom_commercial }} (Triés par ordre FEFO : Premier périmé, premier sorti)</span>
+                                            </h4>
+                                            <span class="text-[11px] text-slate-500">Méthode : <strong>{{ prod.get_methode_rotation_display }}</strong></span>
+                                        </div>
+                                        <div class="overflow-x-auto">
+                                            <table class="min-w-full divide-y divide-slate-200 text-xs">
+                                                <thead class="bg-slate-100 text-[10px] font-bold uppercase text-slate-600">
+                                                    <tr>
+                                                        <th class="px-3 py-2 text-left">Ordre FEFO &amp; N° de Lot</th>
+                                                        <th class="px-3 py-2 text-left">Date de Péremption</th>
+                                                        <th class="px-3 py-2 text-center">Quantité Disponible</th>
+                                                        <th class="px-3 py-2 text-left">Emplacement Physique</th>
+                                                        <th class="px-3 py-2 text-center">Statut Sanitaire</th>
+                                                        <th class="px-3 py-2 text-right">Sécurité / Quarantaine / Rappel</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-100">
+                                                    {% for lot in prod.lots.all %}
+                                                    <tr>
+                                                        <td class="px-3 py-2.5 font-mono font-bold text-slate-900 flex items-center gap-2">
+                                                            {% if forloop.first and lot.statut in 'ACTIF,PROCHE_PEREMPTION' and lot.quantite_disponible > 0 %}
+                                                            <span class="px-2 py-0.5 rounded bg-teal-600 text-white font-sans text-[10px] font-extrabold">
+                                                                1er à sortir (FEFO)
+                                                            </span>
+                                                            {% endif %}
+                                                            <span>{{ lot.numero_lot }}</span>
+                                                        </td>
+                                                        <td class="px-3 py-2.5">
+                                                            <span class="font-bold {% if lot.jours_avant_peremption < 0 %}text-rose-600{% elif lot.jours_avant_peremption <= 90 %}text-amber-600{% else %}text-slate-800{% endif %}">
+                                                                {{ lot.date_peremption|date:"d/m/Y" }}
+                                                            </span>
+                                                            <span class="text-[11px] text-slate-400 ml-1">
+                                                                ({% if lot.jours_avant_peremption < 0 %}Expiré depuis {{ lot.jours_avant_peremption|cut:"-" }} j{% else %}J-{{ lot.jours_avant_peremption }}{% endif %})
+                                                            </span>
+                                                        </td>
+                                                        <td class="px-3 py-2.5 text-center font-extrabold text-slate-900">
+                                                            {{ lot.quantite_disponible }}
+                                                        </td>
+                                                        <td class="px-3 py-2.5 text-slate-600">
+                                                            {{ lot.emplacement_physique }}
+                                                        </td>
+                                                        <td class="px-3 py-2.5 text-center">
+                                                            {% if lot.statut == 'ACTIF' %}
+                                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">🟢 Actif</span>
+                                                            {% elif lot.statut == 'PROCHE_PEREMPTION' %}
+                                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">🟠 Proche péremption (&lt; 3 mois)</span>
+                                                            {% else %}
+                                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">🔴 {{ lot.get_statut_display }}</span>
+                                                            {% endif %}
+                                                            {% if lot.motif_quarantaine_rappel %}
+                                                            <div class="text-[10px] text-rose-600 mt-0.5">{{ lot.motif_quarantaine_rappel }}</div>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="px-3 py-2.5 text-right">
+                                                            {% if lot.statut in 'ACTIF,PROCHE_PEREMPTION,PERIME' %}
+                                                            <form method="post" action="{% url 'pharmacie:lot_quarantine' lot.id %}" class="inline-flex items-center gap-1.5">
+                                                                {% csrf_token %}
+                                                                <select name="nouveau_statut" class="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-800">
+                                                                    <option value="QUARANTAINE">Isoler en Quarantaine</option>
+                                                                    <option value="RAPPELE">Rappel de Lot (ANSM)</option>
+                                                                    <option value="PERIME">Retrait Péremption</option>
+                                                                </select>
+                                                                <input type="hidden" name="motif" value="Isolement sanitaire / Retrait de sécurité opéré depuis le cockpit Pharmacie">
+                                                                <button type="submit" class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold">
+                                                                    Isoler / Retirer
+                                                                </button>
+                                                            </form>
+                                                            {% else %}
+                                                            <span class="text-[11px] text-slate-400 italic">Lot déjà isolé du stock actif</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="px-6 py-8 text-center text-slate-400">
+                                    Aucun produit pharmaceutique ne correspond aux filtres sélectionnés.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ONGLET 2 : CYCLE DES ACHATS & SUGGESTIONS DE RÉAPPROVISIONNEMENT -->
+        <!-- =============================================================== -->
+        <section id="tabPanel-achats" class="hidden space-y-5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Colonne Gauche (7 cols) : Suggestions Automatiques (Stock Max - Stock Actuel) -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <div>
+                            <h2 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                                <span>⚡ Suggestions Automatiques de Réapprovisionnement</span>
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-0.5">
+                                Formule appliquée : <code>Quantité = (Stock Max - Stock Actuel)</code> pour tout produit dont <code>Stock Actuel &le; Seuil d'alerte</code>.
+                            </p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-xs font-extrabold bg-hospital-50 text-hospital-700 border border-hospital-200">
+                            Estimation totale : {{ total_suggestions_ht }} € HT
+                        </span>
+                    </div>
+
+                    {% if suggestions_reappro %}
+                    <form method="post" action="{% url 'pharmacie:order_create' %}" class="space-y-4">
+                        {% csrf_token %}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 cockpit-subcard">
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">
+                                    Grossiste-Répartiteur / Laboratoire destinataire *
+                                </label>
+                                <select name="fournisseur_id" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900">
+                                    {% for four in fournisseurs %}
+                                    <option value="{{ four.id }}">{{ four.nom }} (Délai ~{{ four.delai_livraison_moyen }}j — {{ four.conditions_paiement }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">
+                                    Référence / Note de commande EDI
+                                </label>
+                                <input
+                                    type="text"
+                                    name="notes"
+                                    placeholder="Ex: Réapprovisionnement hebdomadaire prioritaire..."
+                                    class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900"
+                                >
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                            <table class="min-w-full divide-y divide-slate-200 text-xs">
+                                <thead class="bg-slate-50 text-[10px] font-extrabold uppercase text-slate-500">
+                                    <tr>
+                                        <th class="px-3 py-2.5 text-left">Inclure</th>
+                                        <th class="px-3 py-2.5 text-left">Produit en Alerte</th>
+                                        <th class="px-3 py-2.5 text-center">Stock Actuel / Seuil / Max</th>
+                                        <th class="px-3 py-2.5 text-center">Qté Suggérée (Max - Actuel)</th>
+                                        <th class="px-3 py-2.5 text-right">Prix Achat HT Négocié</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    {% for sug in suggestions_reappro %}
+                                    <tr class="{% if sug.urgence == 'ROUGE' %}bg-rose-50/40{% else %}bg-amber-50/30{% endif %}">
+                                        <td class="px-3 py-3 text-center">
+                                            <input type="checkbox" name="produit_ids" value="{{ sug.produit.id }}" checked class="w-4 h-4 rounded text-hospital-600">
+                                        </td>
+                                        <td class="px-3 py-3">
+                                            <div class="font-bold text-slate-900">{{ sug.produit.nom_commercial }} {{ sug.produit.dosage }}</div>
+                                            <div class="text-[11px] text-slate-500">
+                                                {{ sug.produit.dci }} &bull; Fournisseur habituel : <strong>{{ sug.fournisseur.nom|default:"Non défini" }}</strong>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-3 text-center">
+                                            <span class="font-extrabold {% if sug.urgence == 'ROUGE' %}text-rose-600{% else %}text-amber-600{% endif %}">{{ sug.stock_actuel }}</span>
+                                            <span class="text-slate-400">/ {{ sug.stock_minimum }} / {{ sug.stock_maximum }}</span>
+                                        </td>
+                                        <td class="px-3 py-3 text-center">
+                                            <input
+                                                type="number"
+                                                name="quantite_{{ sug.produit.id }}"
+                                                value="{{ sug.quantite_suggeree }}"
+                                                min="1"
+                                                class="w-24 rounded-lg border border-slate-300 px-2.5 py-1 text-center font-extrabold text-slate-900"
+                                            >
+                                        </td>
+                                        <td class="px-3 py-3 text-right">
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                name="prix_{{ sug.produit.id }}"
+                                                value="{{ sug.prix_unitaire_ht }}"
+                                                class="w-24 rounded-lg border border-slate-300 px-2.5 py-1 text-right font-bold text-slate-900"
+                                            > €
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-5 py-2.5 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white text-xs font-extrabold shadow-sm transition-colors">
+                                Valider &amp; Générer le Bon de Commande Fournisseur
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="p-6 text-center text-slate-500 text-xs bg-emerald-50 border border-emerald-200 rounded-xl">
+                        🟢 Tous les produits sont actuellement au-dessus de leur seuil minimum d'alerte.
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Colonne Droite (5 cols) : Historique & Statut des Bons de Commande -->
+                <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                    <h2 class="text-base font-extrabold text-slate-900">
+                        📄 Bons de Commande Fournisseurs ({{ commandes|length }})
+                    </h2>
+                    <div class="space-y-3 max-h-[540px] overflow-y-auto pr-1">
+                        {% for cmd in commandes %}
+                        <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/70 cockpit-subcard space-y-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-mono text-xs font-extrabold text-hospital-700">{{ cmd.numero_commande }}</span>
+                                {% if cmd.statut == 'RECUE' %}
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">🟢 Reçue</span>
+                                {% elif cmd.statut == 'PARTIELLEMENT_RECUE' %}
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800">🟠 Partiellement reçue</span>
+                                {% elif cmd.statut == 'ENVOYEE' %}
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-100 text-sky-800">🔵 Envoyée EDI</span>
+                                {% else %}
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-200 text-slate-700">{{ cmd.get_statut_display }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-xs font-bold text-slate-900">{{ cmd.fournisseur.nom }}</div>
+                            <div class="text-[11px] text-slate-500 flex justify-between">
+                                <span>Créée le {{ cmd.date_creation|date:"d/m/Y H:i" }}</span>
+                                <span>Livraison prévue : <strong>{{ cmd.date_livraison_prevue|date:"d/m/Y"|default:"-" }}</strong></span>
+                            </div>
+                            <div class="text-xs font-extrabold text-slate-800 flex justify-between pt-1 border-t border-slate-200">
+                                <span>Total HT : {{ cmd.montant_total_ht }} €</span>
+                                <span class="text-teal-700">Total TTC : {{ cmd.montant_total_ttc }} €</span>
+                            </div>
+                            <div class="pt-1">
+                                <ul class="text-[11px] text-slate-600 space-y-1">
+                                    {% for lig in cmd.lignes.all %}
+                                    <li class="flex justify-between">
+                                        <span>&bull; {{ lig.produit.nom_commercial }}</span>
+                                        <span class="font-bold">Reçu : {{ lig.quantite_recue }} / {{ lig.quantite_commandee }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ONGLET 3 : RÉCEPTION DE LIVRAISON (DOUCHETTE, LOT, PÉREMPTION)  -->
+        <!-- =============================================================== -->
+        <section id="tabPanel-reception" class="hidden space-y-5">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                            <span>🔫 Réception de Marchandises &amp; Pointage par Douchette Code-Barres</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Pour chaque produit livré, la saisie du <strong>Numéro de Lot</strong> et de la <strong>Date de Péremption</strong> est obligatoire. Le <strong>Prix Moyen Pondéré (PMP)</strong> et les lots FEFO sont mis à jour automatiquement.
+                        </p>
+                    </div>
+                    <div class="w-full md:w-80">
+                        <label class="block text-[10px] font-extrabold uppercase text-teal-700 mb-1">
+                            Scan Douchette Réception (CIP13 / EAN13)
+                        </label>
+                        <input
+                            type="text"
+                            id="receptionBarcodeScanner"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();focusReceptionRowByBarcode(this.value);}"
+                            placeholder="Scannez un boîte pour cibler la ligne..."
+                            class="w-full rounded-xl border-2 border-teal-500 bg-teal-50/40 px-3.5 py-2 text-xs font-bold text-slate-900 focus:bg-white focus:outline-none"
+                        >
+                    </div>
+                </div>
+
+                {% if commandes_en_attente %}
+                <div class="space-y-6 mt-5">
+                    {% for cmd in commandes_en_attente %}
+                    <form method="post" action="{% url 'pharmacie:order_receive' cmd.id %}" class="rounded-2xl border border-slate-300 bg-slate-50/50 p-4 cockpit-subcard space-y-4">
+                        {% csrf_token %}
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <span class="font-mono text-sm font-extrabold text-hospital-700">{{ cmd.numero_commande }}</span>
+                                <span class="ml-2 text-sm font-bold text-slate-900">&mdash; {{ cmd.fournisseur.nom }}</span>
+                                <span class="ml-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">
+                                    {{ cmd.get_statut_display }}
+                                </span>
+                            </div>
+                            <div class="text-xs text-slate-600">
+                                Livraison attendue le <strong>{{ cmd.date_livraison_prevue|date:"d/m/Y" }}</strong> &bull; Montant TTC : <strong>{{ cmd.montant_total_ttc }} €</strong>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto bg-white rounded-xl border border-slate-200 cockpit-card">
+                            <table class="min-w-full divide-y divide-slate-200 text-xs">
+                                <thead class="bg-slate-100 text-[10px] font-extrabold uppercase text-slate-600">
+                                    <tr>
+                                        <th class="px-3 py-2.5 text-left">Produit &amp; Code CIP13</th>
+                                        <th class="px-3 py-2.5 text-center">Commandé / Déjà Reçu / Reliquat</th>
+                                        <th class="px-3 py-2.5 text-center">Qté Reçue Maintenant *</th>
+                                        <th class="px-3 py-2.5 text-left">Numéro de Lot Fabricant *</th>
+                                        <th class="px-3 py-2.5 text-left">Date de Péremption *</th>
+                                        <th class="px-3 py-2.5 text-left">Emplacement de Stockage</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    {% for lig in cmd.lignes.all %}
+                                    <tr data-barcode="{{ lig.produit.code_cip_ean13 }}" class="reception-line-row transition-colors">
+                                        <td class="px-3 py-3">
+                                            <div class="font-extrabold text-slate-900">{{ lig.produit.nom_commercial }} {{ lig.produit.dosage }}</div>
+                                            <div class="font-mono text-[11px] text-slate-500">CIP13 : {{ lig.produit.code_cip_ean13 }}</div>
+                                            <div class="text-[10px] text-teal-700 font-semibold">Prix achat HT : {{ lig.prix_unitaire_achat_negocie }} € (PMP actuel : {{ lig.produit.prix_moyen_pondere_ht }} €)</div>
+                                        </td>
+                                        <td class="px-3 py-3 text-center">
+                                            <span class="font-bold text-slate-700">{{ lig.quantite_commandee }}</span> /
+                                            <span class="text-emerald-700 font-bold">{{ lig.quantite_recue }}</span> /
+                                            <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-extrabold">Reliquat : {{ lig.reliquat_a_recevoir }}</span>
+                                        </td>
+                                        <td class="px-3 py-3 text-center">
+                                            <input
+                                                type="number"
+                                                name="qte_recue_{{ lig.id }}"
+                                                value="{{ lig.reliquat_a_recevoir }}"
+                                                min="0"
+                                                max="5000"
+                                                class="w-24 rounded-lg border border-slate-300 px-2.5 py-1.5 text-center font-extrabold text-slate-900"
+                                            >
+                                        </td>
+                                        <td class="px-3 py-3">
+                                            <input
+                                                type="text"
+                                                name="lot_{{ lig.id }}"
+                                                id="input-lot-{{ lig.produit.code_cip_ean13 }}"
+                                                placeholder="Ex: LOT-2027-X1"
+                                                class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 font-mono text-xs font-bold text-slate-900 focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20"
+                                            >
+                                        </td>
+                                        <td class="px-3 py-3">
+                                            <input
+                                                type="date"
+                                                name="peremption_{{ lig.id }}"
+                                                value="{{ default_expiry_date }}"
+                                                class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-900"
+                                            >
+                                        </td>
+                                        <td class="px-3 py-3">
+                                            <input
+                                                type="text"
+                                                name="emplacement_{{ lig.id }}"
+                                                value="{{ lig.produit.rayon_par_defaut }}"
+                                                class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700"
+                                            >
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold shadow-sm transition-colors">
+                                ✔ Valider la Réception, Créer les Lots FEFO &amp; Recalculer le PMP
+                            </button>
+                        </div>
+                    </form>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="mt-4 p-6 text-center text-slate-500 text-xs bg-slate-50 rounded-xl border border-slate-200">
+                    Aucune commande fournisseur en attente de réception. Créez un bon de commande depuis l'onglet « 2. Suggestions &amp; Bons de Commande ».
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ONGLET 4 : INVENTAIRE TOURNANT & JOURNAL D'AUDIT IMMUABLE       -->
+        <!-- =============================================================== -->
+        <section id="tabPanel-inventaire" class="hidden space-y-5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Colonne Gauche (5 cols) : Outil d'Inventaire Tournant -->
+                <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900">
+                            ⚖️ Outil d'Inventaire Tournant (Correction d'Écarts)
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Permet de corriger l'écart entre le stock théorique et le stock physique réel compté en rayon/coffre, avec <strong>justification obligatoire</strong>.
+                        </p>
+                    </div>
+
+                    <form method="post" action="{% url 'pharmacie:inventory_adjust' %}" class="space-y-3.5">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">
+                                Sélectionner le Lot physique contrôlé (Rayon / Armoire / Coffre) *
+                            </label>
+                            <select
+                                name="lot_id"
+                                id="invLotSelect"
+                                required
+                                onchange="updateInventoryTheoretical(this)"
+                                class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-xs font-bold text-slate-900"
+                            >
+                                {% for l in tous_lots %}
+                                <option value="{{ l.id }}" data-theo="{{ l.quantite_disponible }}">
+                                    [{{ l.emplacement_physique }}] {{ l.produit.nom_commercial }} — Lot {{ l.numero_lot }} (Théorique : {{ l.quantite_disponible }} u.)
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="p-3 rounded-xl bg-slate-100 border border-slate-200 cockpit-subcard">
+                                <span class="text-[10px] font-bold uppercase text-slate-500">Stock Théorique Actuel</span>
+                                <div id="invTheoreticalDisplay" class="text-xl font-extrabold text-slate-800 mt-0.5">
+                                    {% if tous_lots %}{{ tous_lots.0.quantite_disponible }}{% else %}0{% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">
+                                    Stock Réel Compté *
+                                </label>
+                                <input
+                                    type="number"
+                                    name="quantite_reelle"
+                                    min="0"
+                                    required
+                                    placeholder="Quantité physique..."
+                                    class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-extrabold text-slate-900"
+                                >
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">
+                                Motif justificatif obligatoire (Casse, erreur de pointage, contrôle stupéfiants...) *
+                            </label>
+                            <textarea
+                                name="motif_justification"
+                                rows="2"
+                                required
+                                placeholder="Ex: Inventaire tournant hebdomadaire Armoire B1 - 1 flacon cassé lors de la préparation..."
+                                class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900"
+                            ></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-hospital-600 text-white text-xs font-extrabold transition-colors">
+                            Enregistrer l'Ajustement d'Inventaire &amp; Signer l'Audit
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Colonne Droite (7 cols) : Journal d'Audit Immuable des Mouvements -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h2 class="text-base font-extrabold text-slate-900">
+                                🛡️ Journal d'Audit Immuable des Mouvements de Stock
+                            </h2>
+                            <p class="text-xs text-slate-500">
+                                Traçabilité réglementaire HDS &amp; Registre des Stupéfiants (Qui, Quoi, Quand, Lot, Avant/Après, Pourquoi).
+                            </p>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Protection Anti-Suppression Active
+                        </span>
+                    </div>
+
+                    <div class="overflow-x-auto max-h-[460px] overflow-y-auto border border-slate-200 rounded-xl">
+                        <table class="min-w-full divide-y divide-slate-200 text-xs">
+                            <thead class="bg-slate-50 text-[10px] font-extrabold uppercase text-slate-500 sticky top-0">
+                                <tr>
+                                    <th class="px-3 py-2.5 text-left">Horodatage &amp; Opérateur</th>
+                                    <th class="px-3 py-2.5 text-left">Type &amp; Produit</th>
+                                    <th class="px-3 py-2.5 text-center">Lot &amp; Mouvement</th>
+                                    <th class="px-3 py-2.5 text-left">Motif / Référence</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                {% for mvt in mouvements_audit %}
+                                <tr class="hover:bg-slate-50/80">
+                                    <td class="px-3 py-2.5 whitespace-nowrap">
+                                        <div class="font-bold text-slate-800">{{ mvt.date_mouvement|date:"d/m/Y H:i" }}</div>
+                                        <div class="text-[10px] text-slate-500">
+                                            👤 {{ mvt.utilisateur.get_full_name|default:mvt.utilisateur.username|default:"Système Automatique" }}
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2.5">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-extrabold
+                                            {% if mvt.type_mouvement == 'ENTREE_ACHAT' %}bg-emerald-100 text-emerald-800
+                                            {% elif mvt.type_mouvement == 'SORTIE_VENTE' %}bg-sky-100 text-sky-800
+                                            {% elif mvt.type_mouvement == 'AJUSTEMENT_INVENTAIRE' %}bg-purple-100 text-purple-800
+                                            {% else %}bg-rose-100 text-rose-800{% endif %}">
+                                            {{ mvt.get_type_mouvement_display }}
+                                        </span>
+                                        <div class="font-bold text-slate-900 mt-1 flex items-center gap-1.5">
+                                            <span>{{ mvt.produit.nom_commercial }}</span>
+                                            {% if mvt.produit.categorie == 'STUPEFIANT_CONTROLE' %}
+                                            <span class="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 text-[9px] font-extrabold">STUPÉFIANT</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                                        <div class="font-mono text-[11px] font-bold text-slate-700">{{ mvt.lot.numero_lot }}</div>
+                                        <div class="font-extrabold {% if mvt.quantite > 0 %}text-emerald-600{% elif mvt.quantite < 0 %}text-rose-600{% else %}text-slate-600{% endif %}">
+                                            {% if mvt.quantite > 0 %}+{% endif %}{{ mvt.quantite }} u.
+                                            <span class="text-[10px] font-normal text-slate-400">({{ mvt.stock_lot_avant }} &rarr; {{ mvt.stock_lot_apres }})</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2.5 text-[11px] text-slate-600">
+                                        {{ mvt.motif_reference }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- =================================================================== -->
+    <!-- MODALE DE SORTIE DE STOCK FEFO (FIRST EXPIRED, FIRST OUT)           -->
+    <!-- =================================================================== -->
+    <div id="fefoDispenseModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-xl cockpit-card space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900">Sortie de Stock / Dispensation FEFO</h3>
+                    <p class="text-xs text-slate-500">Le système prélève automatiquement sur le lot non périmé ayant la date d'expiration la plus proche.</p>
+                </div>
+                <button type="button" onclick="closeFefoModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+            </div>
+
+            <form method="post" action="{% url 'pharmacie:fefo_dispense' %}" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Produit Pharmaceutique *</label>
+                    <select name="produit_id" id="fefoModalProduitSelect" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-xs font-bold text-slate-900">
+                        {% for p in tous_produits %}
+                        <option value="{{ p.id }}">
+                            {{ p.nom_commercial }} {{ p.dosage }} — Stock FEFO dispo : {{ p.stock_actuel }} u. [CIP: {{ p.code_cip_ean13 }}]
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Quantité à sortir *</label>
+                    <input
+                        type="number"
+                        name="quantite"
+                        value="1"
+                        min="1"
+                        required
+                        class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-extrabold text-slate-900"
+                    >
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">
+                        Motif / Référence d'Ordonnance ou Dotation Service *
+                    </label>
+                    <input
+                        type="text"
+                        name="motif_reference"
+                        required
+                        placeholder="Ex: Dotation Pôle Chirurgie Bloc 2 / Ordonnance Patient IPP..."
+                        class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900"
+                    >
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeFefoModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-600">
+                        Annuler
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold">
+                        Valider la Sortie FEFO
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 1. Gestion des Onglets
+        function switchPharmTab(tabName) {
+            const tabs = ['catalogue', 'achats', 'reception', 'inventaire'];
+            tabs.forEach(t => {
+                const panel = document.getElementById('tabPanel-' + t);
+                const btn = document.getElementById('tabBtn-' + t);
+                if (t === tabName) {
+                    if (panel) panel.classList.remove('hidden');
+                    if (btn) {
+                        btn.className = 'px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 bg-hospital-600 text-white shadow-xs';
+                    }
+                } else {
+                    if (panel) panel.classList.add('hidden');
+                    if (btn) {
+                        btn.className = 'px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 text-slate-600 hover:bg-slate-100';
+                    }
+                }
+            });
+        }
+
+        // Initialiser l'onglet actif depuis le contexte Django
+        switchPharmTab('{{ active_tab|default:"catalogue"|escapejs }}');
+
+        // 2. Accordéon des Lots par produit
+        function toggleProductLots(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.classList.toggle('hidden');
+            }
+        }
+
+        // 3. Modale de sortie FEFO
+        function openFefoModal(prodId, prodTitle, stockDispo) {
+            const modal = document.getElementById('fefoDispenseModal');
+            const sel = document.getElementById('fefoModalProduitSelect');
+            if (prodId && sel) {
+                sel.value = prodId;
+            }
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeFefoModal() {
+            const modal = document.getElementById('fefoDispenseModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // 4. Mise à jour du stock théorique dans l'inventaire tournant
+        function updateInventoryTheoretical(selectEl) {
+            const opt = selectEl.options[selectEl.selectedIndex];
+            const theo = opt ? opt.getAttribute('data-theo') : '0';
+            const disp = document.getElementById('invTheoreticalDisplay');
+            if (disp) disp.textContent = theo;
+        }
+
+        // 5. Lecteur Douchette Code-Barres Global (API JSON)
+        function triggerBarcodeLookup(code) {
+            const clean = (code || '').trim();
+            if (!clean) return;
+            fetch('/pharmacie/api/barcode/' + encodeURIComponent(clean) + '/')
+                .then(r => r.json())
+                .then(data => {
+                    const banner = document.getElementById('barcodeScanResultBanner');
+                    if (!data.found) {
+                        alert(data.error || 'Code-barres inconnu.');
+                        return;
+                    }
+                    document.getElementById('scanResCode').textContent = 'CIP13 : ' + data.code_cip_ean13;
+                    document.getElementById('scanResTitle').textContent = data.nom_commercial + ' ' + data.dosage + ' (' + data.dci + ')';
+                    const fefoInfo = data.premier_lot_fefo
+                        ? 'Lot prioritaire FEFO : ' + data.premier_lot_fefo.numero_lot + ' (Exp: ' + data.premier_lot_fefo.date_peremption + ', Dispo: ' + data.premier_lot_fefo.quantite_disponible + ')'
+                        : 'Aucun lot actif disponible';
+                    document.getElementById('scanResDetails').textContent =
+                        'Stock total : ' + data.stock_actuel + ' u. | PMP : ' + data.pmp_ht + ' € HT | ' + fefoInfo;
+                    document.getElementById('scanBtnDispense').onclick = function() {
+                        openFefoModal(String(data.id), data.nom_commercial, data.stock_actuel);
+                    };
+                    banner.classList.remove('hidden');
+                })
+                .catch(() => {});
+        }
+
+        // 6. Scan Douchette dans l'écran Réception de Marchandises
+        function focusReceptionRowByBarcode(code) {
+            const clean = (code || '').trim();
+            if (!clean) return;
+            const inputLot = document.getElementById('input-lot-' + clean);
+            if (inputLot) {
+                inputLot.focus();
+                const tr = inputLot.closest('tr');
+                if (tr) {
+                    tr.classList.add('bg-teal-100/70');
+                    setTimeout(() => tr.classList.remove('bg-teal-100/70'), 2500);
+                }
+            } else {
+                triggerBarcodeLookup(clean);
+            }
+        }
+
+        // 7. Mode Garde de Nuit
+        function applyNightModeState(isDark) {
+            const root = document.getElementById('htmlRoot');
+            const icon = document.getElementById('nightModeIcon');
+            const label = document.getElementById('nightModeLabel');
+            if (isDark) {
+                root.classList.add('dark');
+                if (icon) icon.textContent = '☀️';
+                if (label) label.textContent = 'Mode Jour';
+            } else {
+                root.classList.remove('dark');
+                if (icon) icon.textContent = '🌙';
+                if (label) label.textContent = 'Mode Nuit';
+            }
+        }
+
+        function toggleNightShiftMode() {
+            const isDark = !document.getElementById('htmlRoot').classList.contains('dark');
+            localStorage.setItem('sih_night_mode', isDark ? '1' : '0');
+            applyNightModeState(isDark);
+        }
+
+        if (localStorage.getItem('sih_night_mode') === '1') {
+            applyNightModeState(true);
+        }
+    </script>
+</body>
+</html>
+

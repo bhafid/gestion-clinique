@@ -61,6 +61,8 @@ INSTALLED_APPS = [
     "apps.gynecologie_maternite.apps.GynecologieMaterniteConfig",
     "apps.pediatrie.apps.PediatrieConfig",
     "apps.urologie.apps.UrologieConfig",
+    "apps.pharmacie.apps.PharmacieConfig",
+    "apps.facturation.apps.FacturationConfig",
 ]
 
 MIDDLEWARE = [

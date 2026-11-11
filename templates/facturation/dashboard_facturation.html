@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="fr" class="min-h-screen bg-slate-50" id="htmlRoot">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturation Hospitalière Algérienne (NGAP, PPA, CNAS/CASNOS &amp; Fiscalité DGI) — Clinique Sidi Yahia 2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-variant-numeric: tabular-nums;
+        }
+        html.dark body { background-color: #0f172a; color: #f1f5f9; }
+        html.dark .cockpit-card { background-color: #1e293b !important; border-color: #334155 !important; color: #f1f5f9 !important; }
+        html.dark .cockpit-subcard { background-color: #0f172a !important; border-color: #334155 !important; }
+        html.dark .text-slate-900, html.dark .text-slate-800 { color: #f8fafc !important; }
+        html.dark .text-slate-700, html.dark .text-slate-600 { color: #cbd5e1 !important; }
+        html.dark .text-slate-500 { color: #94a3b8 !important; }
+        html.dark header { background-color: #0f172a !important; border-color: #1e293b !important; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800 antialiased selection:bg-hospital-600 selection:text-white transition-colors duration-200">
+
+    <!-- =================================================================== -->
+    <!-- EN-TÊTE DU MODULE FACTURATION HOSPITALIÈRE ALGÉRIENNE               -->
+    <!-- =================================================================== -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+            <div class="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-3.5">
+                <div class="flex items-center gap-4 sm:gap-5 min-w-0">
+                    <a href="{% url 'home_dashboard' %}" class="w-24 h-28 sm:w-28 sm:h-32 rounded-2xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shadow-sm shrink-0 hover:border-hospital-500 transition-colors">
+                        <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="h-full w-auto object-contain">
+                    </a>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                                Facturation Hospitalière &amp; Tiers-Payant (Algérie)
+                            </h1>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                🇩🇿 Conformité DGI (NIF / NIS / RC / AI) &bull; TVA 9% / 19% &bull; Timbre
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-hospital-50 text-hospital-700 border border-hospital-200">
+                                NGAP &bull; PPA Pharmacie (FEFO) &bull; CNAS / CASNOS
+                            </span>
+                        </div>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                            {{ etablissement.raison_sociale }} &bull; NIF : <strong class="font-mono text-slate-700">{{ etablissement.nif }}</strong> &bull; RC : <strong class="font-mono text-slate-700">{{ etablissement.rc }}</strong> &bull; AI : <strong class="font-mono text-slate-700">{{ etablissement.article_imposition }}</strong>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 xl:justify-end">
+                    <button
+                        type="button"
+                        onclick="toggleNightShiftMode()"
+                        class="inline-flex items-center px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors"
+                    >
+                        <span id="nightModeIcon">🌙</span>
+                        <span class="ml-1.5" id="nightModeLabel">Mode Nuit</span>
+                    </button>
+
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
+                        <span class="text-xs font-bold text-slate-900">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border {{ role_config.badge_class }}">
+                            {{ request.user.get_role_display }}
+                        </span>
+                    </div>
+
+                    <a href="{% url 'pharmacie:dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors">
+                        💊 Pharmacie &amp; Stocks
+                    </a>
+
+                    <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-bold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors cockpit-card">
+                        &larr; Cockpit Supervision
+                    </a>
+
+                    <a href="/admin/facturation/" class="inline-flex items-center px-3 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors cockpit-card">
+                        Admin Facturation
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+
+        <!-- Messages Flash -->
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between
+                {% if message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full {% if message.tags == 'error' %}bg-rose-500{% else %}bg-emerald-500{% endif %}"></span>
+                    <span>{{ message }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- =============================================================== -->
+        <!-- SECTION 1 : 4 KPIs FINANCIERS & RÉGLEMENTAIRES EN DINARS (DA)   -->
+        <!-- =============================================================== -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- KPI 1 : Chiffre d'Affaires Facturé TTC & TVA -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">CA Total Facturé TTC (Algérie)</span>
+                    <div class="text-2xl font-extrabold text-slate-900 mt-1">{{ ca_total_ttc_da }} DA</div>
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        TVA 9% : <strong>{{ total_tva_9_da }} DA</strong> &bull; TVA 19% : <strong>{{ total_tva_19_da }} DA</strong>
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-hospital-50 border border-hospital-200 text-hospital-700 flex items-center justify-center text-xl shrink-0">
+                    🧾
+                </div>
+            </div>
+
+            <!-- KPI 2 : Part Tiers-Payant (CNAS / CASNOS / Mutuelles) -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-teal-700">Créances Tiers-Payant (CNAS/CASNOS)</span>
+                    <div class="text-2xl font-extrabold text-teal-700 mt-1">{{ total_part_caisses_da }} DA</div>
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        Part organismes sociaux &bull;
+                        <button type="button" onclick="switchBillTab('tiers_payant')" class="text-teal-700 font-bold underline">Bordereaux</button>
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center text-xl shrink-0">
+                    🏛️
+                </div>
+            </div>
+
+            <!-- KPI 3 : Part Patient (Ticket Modérateur) & Droit de Timbre -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Ticket Modérateur Patient &amp; Timbre</span>
+                    <div class="text-2xl font-extrabold text-amber-600 mt-1">{{ total_part_patients_da }} DA</div>
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        Droits de Timbre espèces perçus : <strong>{{ total_timbre_da }} DA</strong>
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center text-xl shrink-0">
+                    💳
+                </div>
+            </div>
+
+            <!-- KPI 4 : Rétrocession d'Honoraires aux Praticiens vs Clinique -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700">Rétrocession Honoraires Médecins</span>
+                    <div class="text-2xl font-extrabold text-indigo-700 mt-1">{{ total_retrocession_medecins_da }} DA</div>
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        Quote-part nette Clinique : <strong>{{ total_quote_clinique_da }} DA</strong>
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center text-xl shrink-0">
+                    🩺
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- BARRE D'ONGLETS DU MODULE DE FACTURATION ALGÉRIENNE             -->
+        <!-- =============================================================== -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs cockpit-card flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-1.5">
+                <button
+                    type="button"
+                    onclick="switchBillTab('factures')"
+                    id="billTabBtn-factures"
+                    class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2"
+                >
+                    <span>🧾</span>
+                    <span>1. Factures Patients (Actes NGAP + Pharmacie PPA)</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] bg-slate-200/80 text-slate-800">{{ factures|length }}</span>
+                </button>
+
+                <button
+                    type="button"
+                    onclick="switchBillTab('ngap_retro')"
+                    id="billTabBtn-ngap_retro"
+                    class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2"
+                >
+                    <span>🩺</span>
+                    <span>2. Nomenclature NGAP &amp; Rétrocession Praticiens</span>
+                </button>
+
+                <button
+                    type="button"
+                    onclick="switchBillTab('tiers_payant')"
+                    id="billTabBtn-tiers_payant"
+                    class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2"
+                >
+                    <span>🏛️</span>
+                    <span>3. Tiers-Payant (CNAS / CASNOS) &amp; Bordereaux</span>
+                </button>
+
+                <button
+                    type="button"
+                    onclick="switchBillTab('fiscalite_dz')"
+                    id="billTabBtn-fiscalite_dz"
+                    class="px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2"
+                >
+                    <span>🇩🇿</span>
+                    <span>4. Conformité Fiscale DGI &amp; Simulateur Timbre</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- ONGLET 1 : FACTURES PATIENTS, SAISIE NGAP/PPA & ENCAISSEMENT    -->
+        <!-- =============================================================== -->
+        <section id="billPanel-factures" class="space-y-5">
+            <!-- Formulaire d'ouverture rapide d'une nouvelle facture patient -->
+            <form method="post" action="{% url 'facturation:facture_create' %}" class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs cockpit-card">
+                {% csrf_token %}
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-extrabold text-slate-900">
+                        ➕ Ouvrir un Nouveau Dossier de Facturation (Séjour d'Hospitalisation, Consultation ou Urgences)
+                    </h2>
+                    <span class="text-[11px] font-semibold text-slate-500">Numérotation séquentielle sans rupture à la validation</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div class="md:col-span-3">
+                        <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Patient *</label>
+                        <select name="patient_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                            {% for pat in patients %}
+                            <option value="{{ pat.id }}">{{ pat.full_name }} ({{ pat.ipp }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Type de Passage / Séjour</label>
+                        <select name="type_prise_en_charge" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                            {% for code, label in types_pec %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-4">
+                        <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Convention Tiers-Payant (Carte Chifa CNAS / CASNOS / Mutuelle)</label>
+                        <select name="convention_id" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                            <option value="">Aucune prise en charge (Payant 100% Patient)</option>
+                            {% for conv in conventions %}
+                            <option value="{{ conv.id }}">{{ conv.patient.full_name }} — {{ conv.organisme.nom }} ({{ conv.taux_prise_en_charge_pct }}% | N° {{ conv.numero_immatriculation_assure }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <button type="submit" class="w-full py-2 px-4 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white text-xs font-extrabold shadow-xs transition-colors">
+                            + Créer Facture
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Liste détaillée des Factures Patients -->
+            <div class="space-y-5">
+                {% for fac in factures %}
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cockpit-card">
+                    <!-- En-tête de la carte facture -->
+                    <div class="px-5 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 cockpit-subcard">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <span class="font-mono text-base font-extrabold text-hospital-700">{{ fac.numero_facture }}</span>
+                            {% if fac.statut == 'SOLDEE' %}
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">🟢 Soldée</span>
+                            {% elif fac.statut == 'VALIDEE_EMISE' %}
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-sky-100 text-sky-800 border border-sky-300">🔵 Validée &amp; Numérotée (Sans rupture)</span>
+                            {% elif fac.statut == 'PARTIELLEMENT_PAYEE' %}
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800 border border-amber-300">🟠 Partiellement réglée</span>
+                            {% else %}
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-200 text-slate-800">📝 Brouillon (Saisie ouverte)</span>
+                            {% endif %}
+
+                            <span class="text-sm font-extrabold text-slate-900">
+                                Patient : {{ fac.patient.full_name }} ({{ fac.patient.ipp }})
+                            </span>
+
+                            {% if fac.convention %}
+                            <span class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                🏛️ Tiers-Payant : {{ fac.convention.organisme.nom }} ({{ fac.convention.taux_prise_en_charge_pct }}% — N° Assuré {{ fac.convention.numero_immatriculation_assure }})
+                            </span>
+                            {% else %}
+                            <span class="px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-600">
+                                Sans Tiers-Payant (100% Patient)
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            {% if fac.statut == 'BROUILLON' %}
+                            <form method="post" action="{% url 'facturation:facture_validate' fac.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs">
+                                    ✔ Valider &amp; Attribuer N° Séquentiel
+                                </button>
+                            </form>
+                            {% endif %}
+
+                            <a
+                                href="{% url 'facturation:facture_print' fac.id %}"
+                                target="_blank"
+                                class="inline-flex items-center px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-hospital-700 text-white text-xs font-extrabold shadow-xs transition-colors"
+                            >
+                                🖨️ Imprimer Facture Réglementaire DZ (NIF/NIS/RC/AI)
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Corps de la facture : Lignes Actes NGAP + Lignes Pharmacie PPA + Formulaires d'ajout -->
+                    <div class="p-5 space-y-5">
+                        <div class="grid grid-cols-1 xl:grid-cols-12 gap-5">
+                            <!-- Colonne Gauche (8 cols) : Détail des Lignes (Actes NGAP & Médicaments PPA) -->
+                            <div class="xl:col-span-8 space-y-4">
+                                <!-- Sous-tableau 1 : Actes Médicaux & Chirurgicaux NGAP -->
+                                <div>
+                                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2">
+                                        1. Actes Médicaux NGAP (C, CS, K, KC, Z, B, AMI, SF), Forfaits &amp; Séjour
+                                    </h3>
+                                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                                        <table class="min-w-full divide-y divide-slate-200 text-xs">
+                                            <thead class="bg-slate-50 text-[10px] font-extrabold uppercase text-slate-500">
+                                                <tr>
+                                                    <th class="px-3 py-2 text-left">Code NGAP &amp; Acte</th>
+                                                    <th class="px-3 py-2 text-left">Praticien (Rétrocession)</th>
+                                                    <th class="px-3 py-2 text-center">Qté</th>
+                                                    <th class="px-3 py-2 text-right">Base CNAS / Tarif HT</th>
+                                                    <th class="px-3 py-2 text-center">TVA</th>
+                                                    <th class="px-3 py-2 text-right">Total TTC</th>
+                                                    <th class="px-3 py-2 text-right">Part Caisse / Patient</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100">
+                                                {% for la in fac.lignes_actes.all %}
+                                                <tr>
+                                                    <td class="px-3 py-2.5">
+                                                        <span class="px-1.5 py-0.5 rounded bg-hospital-100 text-hospital-800 font-mono font-extrabold text-[11px]">{{ la.acte.code_ngap }}</span>
+                                                        <span class="font-bold text-slate-900 ml-1">{{ la.acte.libelle }}</span>
+                                                        <div class="text-[10px] text-slate-400">
+                                                            Lettre-clé {{ la.lettre_cle }} &times; Coeff {{ la.coefficient }}
+                                                            {% if la.depassement_honoraire_ht_da > 0 %}
+                                                            &bull; <span class="text-amber-600 font-semibold">Dépassement : +{{ la.depassement_honoraire_ht_da }} DA</span>
+                                                            {% endif %}
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-3 py-2.5">
+                                                        <div class="font-semibold text-slate-800">{{ la.praticien_executant.get_full_name|default:"Plateau Clinique" }}</div>
+                                                        <div class="text-[10px] text-indigo-600 font-bold">
+                                                            Rétrocession ({{ la.taux_retrocession_praticien_pct }}%) : {{ la.montant_retrocession_praticien_da }} DA
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-3 py-2.5 text-center font-bold">{{ la.quantite }}</td>
+                                                    <td class="px-3 py-2.5 text-right">
+                                                        <div class="text-slate-400 text-[10px]">CNAS : {{ la.tarif_reference_cnas_unitaire_da }} DA</div>
+                                                        <div class="font-bold text-slate-900">{{ la.prix_unitaire_clinique_ht_da }} DA</div>
+                                                    </td>
+                                                    <td class="px-3 py-2.5 text-center font-semibold">{{ la.taux_tva }}%</td>
+                                                    <td class="px-3 py-2.5 text-right font-extrabold text-slate-900">{{ la.montant_ttc_da }} DA</td>
+                                                    <td class="px-3 py-2.5 text-right">
+                                                        <div class="text-teal-700 font-bold text-[11px]">Caisse : {{ la.part_organisme_da }} DA</div>
+                                                        <div class="text-amber-700 font-bold text-[11px]">Patient : {{ la.part_patient_da }} DA</div>
+                                                    </td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="7" class="px-3 py-3 text-center text-slate-400">Aucun acte NGAP saisi sur cette facture.</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Sous-tableau 2 : Consommation Pharmacie au PPA (Déstockage FEFO) -->
+                                <div>
+                                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-teal-700 mb-2">
+                                        2. Consommation de Produits Pharmaceutiques &amp; Consommables au PPA (Déstockage FEFO Automatique)
+                                    </h3>
+                                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                                        <table class="min-w-full divide-y divide-slate-200 text-xs">
+                                            <thead class="bg-teal-50/60 text-[10px] font-extrabold uppercase text-teal-800">
+                                                <tr>
+                                                    <th class="px-3 py-2 text-left">Médicament / Consommable &amp; Lot FEFO Déstocké</th>
+                                                    <th class="px-3 py-2 text-center">Qté</th>
+                                                    <th class="px-3 py-2 text-right">Tarif PPA HT</th>
+                                                    <th class="px-3 py-2 text-center">TVA</th>
+                                                    <th class="px-3 py-2 text-right">Total TTC</th>
+                                                    <th class="px-3 py-2 text-right">Part Caisse / Patient</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100">
+                                                {% for lp in fac.lignes_pharmacie.all %}
+                                                <tr>
+                                                    <td class="px-3 py-2.5">
+                                                        <div class="font-bold text-slate-900">{{ lp.produit.nom_commercial }} {{ lp.produit.dosage }}</div>
+                                                        <div class="text-[10px] text-slate-500">
+                                                            DCI : {{ lp.produit.dci }} &bull;
+                                                            <span class="font-mono font-bold text-teal-700">Lot FEFO déstocké : {{ lp.lot_sorti.numero_lot|default:"FEFO" }}</span>
+                                                            {% if lp.est_remboursable_cnas %}
+                                                            <span class="ml-1 px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold">Remboursable CNAS</span>
+                                                            {% else %}
+                                                            <span class="ml-1 px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 font-bold">Non remboursable</span>
+                                                            {% endif %}
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-3 py-2.5 text-center font-bold">{{ lp.quantite }}</td>
+                                                    <td class="px-3 py-2.5 text-right font-semibold">{{ lp.tarif_ppa_unitaire_ht_da }} DA</td>
+                                                    <td class="px-3 py-2.5 text-center">{{ lp.taux_tva }}%</td>
+                                                    <td class="px-3 py-2.5 text-right font-extrabold text-slate-900">{{ lp.montant_ttc_da }} DA</td>
+                                                    <td class="px-3 py-2.5 text-right">
+                                                        <div class="text-teal-700 font-bold text-[11px]">Caisse : {{ lp.part_organisme_da }} DA</div>
+                                                        <div class="text-amber-700 font-bold text-[11px]">Patient : {{ lp.part_patient_da }} DA</div>
+                                                    </td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="6" class="px-3 py-3 text-center text-slate-400">Aucune consommation pharmaceutique imputée.</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Formulaires rapides d'ajout d'Acte NGAP et de Médicament PPA (FEFO) -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                    <!-- Ajouter un Acte NGAP -->
+                                    <form method="post" action="{% url 'facturation:facture_add_acte' fac.id %}" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5 cockpit-subcard">
+                                        {% csrf_token %}
+                                        <div class="text-xs font-extrabold text-slate-800">+ Imputer un Acte NGAP / Forfait / Séjour</div>
+                                        <select name="acte_id" required class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900">
+                                            {% for a in actes_ngap %}
+                                            <option value="{{ a.id }}">[{{ a.code_ngap }}] {{ a.libelle }} — {{ a.tarif_clinique_ht_da }} DA HT (TVA {{ a.taux_tva }}%)</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <select name="praticien_id" class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800">
+                                                <option value="">Praticien exécutant (Rétrocession)</option>
+                                                {% for prat in praticiens %}
+                                                <option value="{{ prat.id }}">{{ prat.get_full_name|default:prat.username }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="flex gap-1.5">
+                                                <input type="number" name="quantite" value="1" min="1" class="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-xs font-bold text-center">
+                                                <button type="submit" class="flex-1 rounded-lg bg-hospital-600 hover:bg-hospital-700 text-white text-xs font-extrabold">
+                                                    Ajouter Acte
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+
+                                    <!-- Ajouter un Médicament au PPA avec Déstockage FEFO -->
+                                    <form method="post" action="{% url 'facturation:facture_add_pharma' fac.id %}" class="p-3.5 rounded-xl bg-teal-50/50 border border-teal-200 space-y-2.5 cockpit-subcard">
+                                        {% csrf_token %}
+                                        <div class="text-xs font-extrabold text-teal-900">+ Consommer Produit Pharmacie au PPA (Déstockage FEFO)</div>
+                                        <select name="produit_id" required class="w-full rounded-lg border border-teal-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900">
+                                            {% for prod in produits_pharmacie %}
+                                            <option value="{{ prod.id }}">{{ prod.nom_commercial }} {{ prod.dosage }} (Dispo FEFO : {{ prod.stock_actuel }} u.)</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="grid grid-cols-3 gap-2">
+                                            <input type="number" name="quantite" value="1" min="1" placeholder="Qté" class="rounded-lg border border-teal-300 bg-white px-2.5 py-1.5 text-xs font-bold text-center">
+                                            <input type="number" step="0.01" name="tarif_ppa_unitaire_ht_da" placeholder="Tarif PPA DA (auto)" class="rounded-lg border border-teal-300 bg-white px-2.5 py-1.5 text-xs">
+                                            <button type="submit" class="rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold">
+                                                Déstocker &amp; Facturer
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <!-- Colonne Droite (4 cols) : Synthèse Fiscale Algérienne & Encaissement (Timbre) -->
+                            <div class="xl:col-span-4 bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3 cockpit-subcard">
+                                <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 border-b border-slate-200 pb-2">
+                                    Synthèse Fiscale Algérienne &amp; Ventilation
+                                </h3>
+                                <div class="space-y-1.5 text-xs">
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-500">Total Actes NGAP &amp; Séjour HT :</span>
+                                        <span class="font-bold text-slate-900">{{ fac.total_actes_ht_da }} DA</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-500">Total Pharmacie (PPA) HT :</span>
+                                        <span class="font-bold text-slate-900">{{ fac.total_pharmacie_ppa_ht_da }} DA</span>
+                                    </div>
+                                    <div class="flex justify-between border-t border-slate-200 pt-1">
+                                        <span class="font-bold text-slate-700">Total Général HT :</span>
+                                        <span class="font-extrabold text-slate-900">{{ fac.montant_total_ht_da }} DA</span>
+                                    </div>
+                                    <div class="flex justify-between text-[11px]">
+                                        <span class="text-slate-500">TVA Taux Réduit (9 %) :</span>
+                                        <span class="font-semibold text-slate-700">{{ fac.montant_tva_9_da }} DA</span>
+                                    </div>
+                                    <div class="flex justify-between text-[11px]">
+                                        <span class="text-slate-500">TVA Taux Normal (19 %) :</span>
+                                        <span class="font-semibold text-slate-700">{{ fac.montant_tva_19_da }} DA</span>
+                                    </div>
+                                    <div class="flex justify-between border-t border-slate-200 pt-1 text-sm">
+                                        <span class="font-extrabold text-slate-900">Total TTC (Hors Timbre) :</span>
+                                        <span class="font-extrabold text-hospital-700">{{ fac.montant_total_ttc_da }} DA</span>
+                                    </div>
+                                </div>
+
+                                <!-- Séparation Part Organisme vs Ticket Modérateur Patient -->
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 space-y-1.5 text-xs cockpit-card">
+                                    <div class="flex justify-between text-teal-700 font-bold">
+                                        <span>🏛️ Part Organisme (Tiers-Payant) :</span>
+                                        <span>{{ fac.part_organisme_tiers_payant_da }} DA</span>
+                                    </div>
+                                    <div class="flex justify-between text-amber-700 font-extrabold">
+                                        <span>👤 Part Patient (Ticket Modérateur) :</span>
+                                        <span>{{ fac.part_patient_ticket_moderateur_da }} DA</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-600 text-[11px]">
+                                        <span>Droit de Timbre (Espèces) :</span>
+                                        <span>+ {{ fac.droit_timbre_da }} DA</span>
+                                    </div>
+                                    <div class="flex justify-between border-t border-slate-200 pt-1.5 text-sm font-extrabold text-slate-900">
+                                        <span>Net à Payer Patient :</span>
+                                        <span>{{ fac.net_a_payer_patient_da }} DA</span>
+                                    </div>
+                                    <div class="flex justify-between text-[11px] font-bold text-emerald-700">
+                                        <span>Déjà réglé : {{ fac.montant_deja_regle_patient_da }} DA</span>
+                                        <span class="text-rose-600">Reste : {{ fac.reste_a_payer_patient_da }} DA</span>
+                                    </div>
+                                </div>
+
+                                <!-- Formulaire d'Encaissement Patient avec calcul automatique du Droit de Timbre -->
+                                {% if fac.reste_a_payer_patient_da > 0 %}
+                                <form method="post" action="{% url 'facturation:facture_pay' fac.id %}" class="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                                    {% csrf_token %}
+                                    <div class="text-xs font-extrabold text-amber-900">
+                                        💳 Encaisser le Ticket Modérateur Patient
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold uppercase text-amber-800 mb-0.5">
+                                            Mode de Paiement (Espèces = Timbre 1%..2% | CIB/Edahabia = 0 DA)
+                                        </label>
+                                        <select name="mode_paiement" class="w-full rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900">
+                                            {% for code, lbl in modes_paiement %}
+                                            <option value="{{ code }}">{{ lbl }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            name="montant_hors_timbre_da"
+                                            value="{{ fac.reste_a_payer_patient_da }}"
+                                            required
+                                            class="rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-extrabold text-slate-900"
+                                        >
+                                        <input
+                                            type="text"
+                                            name="reference_transaction"
+                                            placeholder="N° TPE CIB / Chèque..."
+                                            class="rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs text-slate-800"
+                                        >
+                                    </div>
+                                    <button type="submit" class="w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold shadow-xs">
+                                        Valider l'Encaissement &amp; Calculer le Timbre
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ONGLET 2 : NOMENCLATURE NGAP ALGÉRIENNE & RÉTROCESSION MÉDECINS -->
+        <!-- =============================================================== -->
+        <section id="billPanel-ngap_retro" class="hidden space-y-5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Catalogue NGAP Algérie -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900">
+                            📘 Nomenclature Générale des Actes Professionnels (NGAP Algérie) &amp; Forfaits
+                        </h2>
+                        <p class="text-xs text-slate-500">
+                            Lettres-clés officielles (<code>C, CS, K, KC, Z, B, AMI, SF</code>), tarifs de référence CNAS, tarifs Clinique, TVA algérienne (0%, 9%, 19%) et clé de rétrocession médicale.
+                        </p>
+                    </div>
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table class="min-w-full divide-y divide-slate-200 text-xs">
+                            <thead class="bg-slate-50 text-[10px] font-extrabold uppercase text-slate-500">
+                                <tr>
+                                    <th class="px-3 py-2.5 text-left">Code &amp; Libellé Acte</th>
+                                    <th class="px-3 py-2.5 text-center">Lettre-Clé &times; Coeff</th>
+                                    <th class="px-3 py-2.5 text-right">Base CNAS (DA)</th>
+                                    <th class="px-3 py-2.5 text-right">Tarif Clinique HT</th>
+                                    <th class="px-3 py-2.5 text-center">TVA</th>
+                                    <th class="px-3 py-2.5 text-center">% Rétrocession</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                {% for a in actes_ngap %}
+                                <tr>
+                                    <td class="px-3 py-2.5">
+                                        <span class="font-mono font-extrabold text-hospital-700">{{ a.code_ngap }}</span>
+                                        <div class="font-bold text-slate-900">{{ a.libelle }}</div>
+                                    </td>
+                                    <td class="px-3 py-2.5 text-center font-mono font-bold text-slate-700">
+                                        {{ a.lettre_cle }} &times; {{ a.coefficient }}
+                                    </td>
+                                    <td class="px-3 py-2.5 text-right font-semibold text-teal-700">{{ a.tarif_reference_cnas_da }} DA</td>
+                                    <td class="px-3 py-2.5 text-right font-extrabold text-slate-900">{{ a.tarif_clinique_ht_da }} DA</td>
+                                    <td class="px-3 py-2.5 text-center font-bold">{{ a.taux_tva }}%</td>
+                                    <td class="px-3 py-2.5 text-center">
+                                        <span class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-extrabold">
+                                            {{ a.taux_retrocession_praticien_defaut }}% Médecin
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- État des Rétrocessions d'Honoraires aux Praticiens -->
+                <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900">
+                            🩺 État de Répartition des Honoraires (Clinique vs Praticiens)
+                        </h2>
+                        <p class="text-xs text-slate-500">
+                            Calcul automatique de la rétrocession médicale sur chaque acte réalisé.
+                        </p>
+                    </div>
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table class="min-w-full divide-y divide-slate-200 text-xs">
+                            <thead class="bg-indigo-50 text-[10px] font-extrabold uppercase text-indigo-800">
+                                <tr>
+                                    <th class="px-3 py-2 text-left">Facture &amp; Acte</th>
+                                    <th class="px-3 py-2 text-left">Praticien</th>
+                                    <th class="px-3 py-2 text-right">Part Médecin</th>
+                                    <th class="px-3 py-2 text-right">Part Clinique</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                {% for lr in lignes_retrocession %}
+                                <tr>
+                                    <td class="px-3 py-2.5">
+                                        <div class="font-mono text-[10px] text-slate-500">{{ lr.facture.numero_facture }}</div>
+                                        <div class="font-bold text-slate-900">[{{ lr.acte.code_ngap }}] {{ lr.acte.libelle|truncatechars:32 }}</div>
+                                    </td>
+                                    <td class="px-3 py-2.5 font-semibold text-slate-800">
+                                        {{ lr.praticien_executant.get_full_name|default:"Plateau Technique" }}
+                                    </td>
+                                    <td class="px-3 py-2.5 text-right font-extrabold text-indigo-700">
+                                        {{ lr.montant_retrocession_praticien_da }} DA
+                                    </td>
+                                    <td class="px-3 py-2.5 text-right font-bold text-slate-700">
+                                        {{ lr.montant_quote_part_clinique_da }} DA
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ONGLET 3 : TIERS-PAYANT (CNAS / CASNOS) & BORDEREAUX D'ENVOI    -->
+        <!-- =============================================================== -->
+        <section id="billPanel-tiers_payant" class="hidden space-y-5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Colonne Gauche (5 cols) : Ouvrir une Prise en Charge CNAS/CASNOS & Générer Bordereau -->
+                <div class="lg:col-span-5 space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-3.5">
+                        <h2 class="text-base font-extrabold text-slate-900">
+                            💳 Nouvelle Prise en Charge Assuré Social (Carte Chifa CNAS / CASNOS / Mutuelle)
+                        </h2>
+                        <form method="post" action="{% url 'facturation:convention_create' %}" class="space-y-3">
+                            {% csrf_token %}
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Patient Assuré / Ayant-droit *</label>
+                                <select name="patient_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                                    {% for pat in patients %}
+                                    <option value="{{ pat.id }}">{{ pat.full_name }} ({{ pat.ipp }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Organisme Payeur (CNAS, CASNOS, Mutuelle, Assurance, Entreprise) *</label>
+                                <select name="organisme_id" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                                    {% for org in organismes %}
+                                    <option value="{{ org.id }}">{{ org.nom }} (Taux défaut : {{ org.taux_couverture_defaut_pct }}%)</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">N° Immatriculation Assuré (12 ch.) *</label>
+                                    <input type="text" name="numero_immatriculation_assure" required placeholder="Ex: 198016029144" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-mono font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Taux Couverture (%)</label>
+                                    <input type="number" step="0.01" name="taux_prise_en_charge_pct" value="80.00" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-extrabold">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">N° d'Accord Prise en Charge (PEC Caisse)</label>
+                                <input type="text" name="numero_accord_pec" placeholder="Ex: PEC-CNAS-16-2026-901" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs">
+                            </div>
+                            <button type="submit" class="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold">
+                                Enregistrer la Prise en Charge Tiers-Payant
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Génération de Bordereau d'Envoi Caisse -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-3">
+                        <h2 class="text-base font-extrabold text-slate-900">
+                            📦 Générer un Bordereau d'Envoi pour Remboursement Caisse
+                        </h2>
+                        <p class="text-xs text-slate-500">
+                            Regroupe toutes les factures validées non encore bordereautées pour l'organisme choisi.
+                        </p>
+                        <form method="post" action="{% url 'facturation:bordereau_generate' %}" class="flex gap-2">
+                            {% csrf_token %}
+                            <select name="organisme_id" required class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                                {% for org in organismes %}
+                                <option value="{{ org.id }}">{{ org.nom }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-hospital-700 text-white text-xs font-extrabold whitespace-nowrap">
+                                Générer Bordereau
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Colonne Droite (7 cols) : Liste des Bordereaux d'Envoi CNAS/CASNOS -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                    <h2 class="text-base font-extrabold text-slate-900">
+                        🏛️ Bordereaux d'Envoi aux Caisses (CNAS / CASNOS / Mutuelles / Entreprises)
+                    </h2>
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table class="min-w-full divide-y divide-slate-200 text-xs">
+                            <thead class="bg-slate-50 text-[10px] font-extrabold uppercase text-slate-500">
+                                <tr>
+                                    <th class="px-3 py-2.5 text-left">N° Bordereau</th>
+                                    <th class="px-3 py-2.5 text-left">Organisme Destinataire</th>
+                                    <th class="px-3 py-2.5 text-center">Période</th>
+                                    <th class="px-3 py-2.5 text-center">Nb Dossiers</th>
+                                    <th class="px-3 py-2.5 text-right">Montant Réclamé (DA)</th>
+                                    <th class="px-3 py-2.5 text-center">Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                {% for b in bordereaux %}
+                                <tr>
+                                    <td class="px-3 py-3 font-mono font-extrabold text-teal-700">{{ b.numero_bordereau }}</td>
+                                    <td class="px-3 py-3 font-bold text-slate-900">{{ b.organisme.nom }}</td>
+                                    <td class="px-3 py-3 text-center text-slate-500">{{ b.periode_debut|date:"d/m/Y" }} &rarr; {{ b.periode_fin|date:"d/m/Y" }}</td>
+                                    <td class="px-3 py-3 text-center font-extrabold">{{ b.nombre_factures }}</td>
+                                    <td class="px-3 py-3 text-right font-extrabold text-slate-900">{{ b.montant_total_tiers_payant_da }} DA</td>
+                                    <td class="px-3 py-3 text-center">
+                                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
+                                            {{ b.get_statut_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="px-4 py-6 text-center text-slate-400">
+                                        Aucun bordereau généré. Cliquez sur « Générer Bordereau » à gauche pour regrouper les factures CNAS/CASNOS.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ONGLET 4 : CONFORMITÉ FISCALE DGI & SIMULATEUR DROIT DE TIMBRE  -->
+        <!-- =============================================================== -->
+        <section id="billPanel-fiscalite_dz" class="hidden space-y-5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Fiche d'Identité Fiscale de l'Établissement -->
+                <div class="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                    <h2 class="text-base font-extrabold text-slate-900">
+                        🇩🇿 Mentions Légales &amp; Fiscales Obligatoires (Décret Exécutif n° 05-468)
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
+                            <span class="text-[10px] font-bold uppercase text-slate-400">Raison Sociale</span>
+                            <div class="font-extrabold text-slate-900 mt-0.5">{{ etablissement.raison_sociale }}</div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
+                            <span class="text-[10px] font-bold uppercase text-slate-400">Forme Juridique &amp; Capital</span>
+                            <div class="font-bold text-slate-800 mt-0.5">{{ etablissement.forme_juridique }}</div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
+                            <span class="text-[10px] font-bold uppercase text-slate-400">N.I.F (Identification Fiscale DGI)</span>
+                            <div class="font-mono font-extrabold text-hospital-700 text-sm mt-0.5">{{ etablissement.nif }}</div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
+                            <span class="text-[10px] font-bold uppercase text-slate-400">N.I.S (Identification Statistique ONS)</span>
+                            <div class="font-mono font-extrabold text-slate-900 text-sm mt-0.5">{{ etablissement.nis }}</div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
+                            <span class="text-[10px] font-bold uppercase text-slate-400">N° Registre de Commerce (CNRC)</span>
+                            <div class="font-mono font-extrabold text-slate-900 text-sm mt-0.5">{{ etablissement.rc }}</div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 cockpit-subcard">
+                            <span class="text-[10px] font-bold uppercase text-slate-400">Article d'Imposition (A.I)</span>
+                            <div class="font-mono font-extrabold text-slate-900 text-sm mt-0.5">{{ etablissement.article_imposition }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulateur interactif du Droit de Timbre Algérien -->
+                <div class="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs cockpit-card space-y-4">
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900">
+                            🧮 Simulateur du Droit de Timbre Algérien (Code du Timbre / Loi de Finances)
+                        </h2>
+                        <p class="text-xs text-slate-500">
+                            Vérifiez en direct le calcul du Droit de Timbre selon le mode de paiement (Espèces vs CIB / Edahabia / Chèque / Virement).
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Montant TTC hors timbre (DA)</label>
+                            <input
+                                type="number"
+                                id="simMontantInput"
+                                value="45000"
+                                oninput="runTimbreSimulation()"
+                                class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-extrabold text-slate-900"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Mode de règlement</label>
+                            <select id="simModeSelect" onchange="runTimbreSimulation()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900">
+                                {% for code, lbl in modes_paiement %}
+                                <option value="{{ code }}">{{ lbl }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-900 text-white flex items-center justify-between">
+                        <div>
+                            <div class="text-xs text-slate-300">Droit de Timbre calculé :</div>
+                            <div id="simTimbreResult" class="text-xl font-extrabold text-amber-400">525.00 DA</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-slate-300">Total Net à Payer TTC :</div>
+                            <div id="simNetResult" class="text-xl font-extrabold text-emerald-400">45525.00 DA</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        function switchBillTab(tabName) {
+            const tabs = ['factures', 'ngap_retro', 'tiers_payant', 'fiscalite_dz'];
+            tabs.forEach(t => {
+                const panel = document.getElementById('billPanel-' + t);
+                const btn = document.getElementById('billTabBtn-' + t);
+                if (t === tabName) {
+                    if (panel) panel.classList.remove('hidden');
+                    if (btn) btn.className = 'px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 bg-hospital-600 text-white shadow-xs';
+                } else {
+                    if (panel) panel.classList.add('hidden');
+                    if (btn) btn.className = 'px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 text-slate-600 hover:bg-slate-100';
+                }
+            });
+        }
+        switchBillTab('{{ active_tab|default:"factures"|escapejs }}');
+
+        function runTimbreSimulation() {
+            const m = document.getElementById('simMontantInput').value || '0';
+            const mode = document.getElementById('simModeSelect').value || 'ESPECES';
+            fetch('/facturation/api/simuler-timbre/?montant=' + encodeURIComponent(m) + '&mode=' + encodeURIComponent(mode))
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('simTimbreResult').textContent = data.droit_timbre_da + ' DA' + (data.exonere ? ' (Exonéré)' : '');
+                    document.getElementById('simNetResult').textContent = data.net_a_payer_da + ' DA';
+                })
+                .catch(() => {});
+        }
+        runTimbreSimulation();
+
+        function applyNightModeState(isDark) {
+            const root = document.getElementById('htmlRoot');
+            const icon = document.getElementById('nightModeIcon');
+            const label = document.getElementById('nightModeLabel');
+            if (isDark) {
+                root.classList.add('dark');
+                if (icon) icon.textContent = '☀️';
+                if (label) label.textContent = 'Mode Jour';
+            } else {
+                root.classList.remove('dark');
+                if (icon) icon.textContent = '🌙';
+                if (label) label.textContent = 'Mode Nuit';
+            }
+        }
+        function toggleNightShiftMode() {
+            const isDark = !document.getElementById('htmlRoot').classList.contains('dark');
+            localStorage.setItem('sih_night_mode', isDark ? '1' : '0');
+            applyNightModeState(isDark);
+        }
+        if (localStorage.getItem('sih_night_mode') === '1') {
+            applyNightModeState(true);
+        }
+    </script>
+</body>
+</html>
+
