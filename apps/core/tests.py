@@ -100,13 +100,30 @@ class CoreModuleTestCase(TestCase):
         )
 
     def test_nir_validation(self) -> None:
-        """Vérifie la validation de la clé de contrôle de sécurité sociale (NIR)."""
-        # Le NIR valide ne doit pas lever d'erreur
-        validate_french_nir(self.valid_nir)
+        """
+        Vérifie que le champ Numéro de Sécurité Sociale / Numéro de carte d'identité
+        accepte tout format (sans validation de structure) mais bloque les doublons.
+        """
+        p_libre = Patient(
+            nir="109820514001234567",
+            last_name="Test",
+            first_name="FormatLibre",
+            birth_date=date(1985, 6, 15),
+            gender="M",
+        )
+        p_libre.full_clean()
+        p_libre.save()
 
-        # Un NIR avec une mauvaise clé doit lever ValidationError
+        # Un doublon exact doit être rejeté par la contrainte d'unicité
+        p_doublon = Patient(
+            nir="109820514001234567",
+            last_name="Test",
+            first_name="Doublon",
+            birth_date=date(1985, 6, 15),
+            gender="M",
+        )
         with self.assertRaises(ValidationError):
-            validate_french_nir(self.invalid_nir)
+            p_doublon.full_clean()
 
     def test_dpi_ipp_auto_generation(self) -> None:
         """Vérifie que l'IPP est automatiquement et correctement généré."""
@@ -575,6 +592,112 @@ class CoreModuleTestCase(TestCase):
         self.assertEqual(res_rep.status_code, 302)
         rep.refresh_from_db()
         self.assertEqual(rep.status, ShiftReplacementStatus.VALIDE)
+
+    def test_patient_readmission_flow(self) -> None:
+        """
+        Vérifie la réadmission d'un patient déjà enregistré dans le système :
+        - GET /core/patients/<pk>/readmit/ affiche la fiche patient et les lits disponibles.
+        - POST crée un nouveau séjour Hospitalization (EN_COURS), passe le lit à OCCUPE,
+          met à jour le statut patient à ADMISSION et journalise dans l'historique et l'audit.
+        - Un second POST alors qu'un séjour est déjà EN_COURS est bloqué sans doublon.
+        """
+        from apps.core.models import HospitalizationStatus, PatientStatusConfig
+
+        PatientStatusConfig.ensure_default_statuses()
+        sortie_status = PatientStatusConfig.objects.filter(code="SORTIE").first()
+
+        patient = Patient.objects.create(
+            nir="190017512345601",
+            last_name="BENALI",
+            first_name="Yacine",
+            birth_date=date(1990, 1, 15),
+            gender="M",
+            current_status=sortie_status,
+        )
+        # Ancien séjour déjà clôturé
+        now = timezone.now()
+        Hospitalization.objects.create(
+            patient=patient,
+            bed=self.bed_101,
+            practitioner=self.doctor_chir,
+            admission_date=now - timedelta(days=10),
+            expected_discharge_date=now - timedelta(days=7),
+            actual_discharge_date=now - timedelta(days=7),
+            admission_reason="Intervention précédente",
+        )
+        self.bed_101.status = BedStatus.DISPONIBLE
+        self.bed_101.save(update_fields=["status"])
+
+        client = Client()
+        client.force_login(self.doctor_chir)
+
+        readmit_url = reverse("core:patient_readmit", kwargs={"pk": patient.pk})
+        res_get = client.get(readmit_url)
+        self.assertEqual(res_get.status_code, 200)
+        self.assertContains(res_get, "BENALI")
+
+        res_post = client.post(
+            readmit_url,
+            {
+                "bed_id": self.bed_101.pk,
+                "practitioner_id": self.doctor_chir.pk,
+                "admission_date": now.strftime("%Y-%m-%dT%H:%M"),
+                "expected_discharge_date": (now + timedelta(days=3)).strftime("%Y-%m-%dT%H:%M"),
+                "admission_reason": "Contrôle et réadmission post-opératoire",
+                "entry_diagnosis": "Suivi cicatriciel",
+                "next": reverse("core:patient_list"),
+            },
+        )
+        self.assertEqual(res_post.status_code, 302)
+
+        self.bed_101.refresh_from_db()
+        self.assertEqual(self.bed_101.status, BedStatus.OCCUPE)
+
+        patient.refresh_from_db()
+        self.assertIsNotNone(patient.current_status)
+        self.assertEqual(patient.current_status.code, "ADMISSION")
+        self.assertEqual(
+            patient.hospitalizations.filter(status=HospitalizationStatus.EN_COURS).count(),
+            1,
+        )
+
+        # Tentative de réadmission alors qu'un séjour est déjà en cours -> bloquée
+        res_dup = client.post(
+            readmit_url,
+            {
+                "bed_id": self.bed_101.pk,
+                "admission_reason": "Doublon impossible",
+            },
+        )
+        self.assertEqual(res_dup.status_code, 302)
+        self.assertEqual(
+            patient.hospitalizations.filter(status=HospitalizationStatus.EN_COURS).count(),
+            1,
+        )
+
+        # Passage du patient au statut SORTIE -> clôture automatique du séjour et réadmission possible
+        patient.change_status(sortie_status, changed_by=self.doctor_chir, comment="Sortie médicale")
+        self.assertEqual(
+            patient.hospitalizations.filter(status=HospitalizationStatus.EN_COURS).count(),
+            0,
+        )
+        self.bed_101.status = BedStatus.DISPONIBLE
+        self.bed_101.save(update_fields=["status"])
+
+        res_readmit_after_sortie = client.post(
+            readmit_url,
+            {
+                "bed_id": self.bed_101.pk,
+                "practitioner_id": self.doctor_chir.pk,
+                "admission_reason": "Nouvelle réadmission après sortie",
+            },
+        )
+        self.assertEqual(res_readmit_after_sortie.status_code, 302)
+        self.assertEqual(
+            patient.hospitalizations.filter(status=HospitalizationStatus.EN_COURS).count(),
+            1,
+        )
+
 
 
 

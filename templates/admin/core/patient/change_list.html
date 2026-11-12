@@ -1,0 +1,50 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+<div style="margin-bottom: 18px; padding: 14px 18px; border-radius: 10px; border: 1px solid #7dd3fc; background: linear-gradient(90deg, #f0f9ff 0%, #ffffff 55%, #ecfdf5 100%); color: #0f172a; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);">
+    <div style="flex: 1 1 320px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="padding: 2px 9px; border-radius: 9999px; font-size: 11px; font-weight: 800; background: #0284c7; color: #ffffff; text-transform: uppercase; letter-spacing: 0.04em;">
+                Excel / CSV
+            </span>
+            <strong style="font-size: 14px; color: #0f172a;">
+                Importation &amp; Exportation des Patients (Dossiers DPI)
+            </strong>
+        </div>
+        <p style="margin: 6px 0 0 0; font-size: 12px; color: #475569;">
+            Importez une liste de patients depuis un fichier Excel (<code>.xlsx</code>) ou <code>.csv</code> (mise à jour sans doublon, génération automatique de l'IPP si absent) ou exportez les dossiers patients.
+        </p>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+        <form method="post" action="{% url 'core:import_patients_excel' %}" enctype="multipart/form-data" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #ffffff; padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <input
+                type="file"
+                name="excel_file"
+                accept=".xlsx,.csv,.txt"
+                required
+                style="font-size: 12px; color: #334155;"
+            >
+            <button type="submit" style="padding: 6px 12px; border-radius: 6px; border: none; background: #0284c7; color: #ffffff; font-size: 12px; font-weight: 700; cursor: pointer;">
+                📤 Importer Malades
+            </button>
+        </form>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+            <a href="{% url 'core:export_patients_excel' %}?format=xlsx" style="display: inline-flex; align-items: center; padding: 7px 12px; border-radius: 6px; background: #059669; color: #ffffff; font-size: 12px; font-weight: 700; text-decoration: none;">
+                📥 Exporter Excel (.xlsx)
+            </a>
+            <a href="{% url 'core:export_patients_excel' %}?format=csv" style="display: inline-flex; align-items: center; padding: 7px 11px; border-radius: 6px; background: #ffffff; color: #334155; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 700; text-decoration: none;">
+                📥 CSV
+            </a>
+            <a href="{% url 'core:export_patients_excel' %}?format=xlsx&amp;template=1" style="display: inline-flex; align-items: center; padding: 7px 11px; border-radius: 6px; background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; font-size: 12px; font-weight: 700; text-decoration: none;" title="Télécharger un modèle Excel pré-rempli pour importer vos patients">
+                📄 Modèle Excel (.xlsx)
+            </a>
+        </div>
+    </div>
+</div>
+{{ block.super }}
+{% endblock %}
+

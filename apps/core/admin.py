@@ -108,6 +108,7 @@ class PatientStatusHistoryAdmin(admin.ModelAdmin):
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
+    change_list_template = "admin/core/patient/change_list.html"
     list_display = [
         "ipp",
         "last_name",
@@ -118,12 +119,24 @@ class PatientAdmin(admin.ModelAdmin):
         "current_status_badge",
         "status_updated_at",
         "nir_masked",
+        "readmission_button",
         "consent_pdf_button",
     ]
     list_filter = ["current_status", "blood_group", "gender", "created_at"]
     search_fields = ["ipp", "last_name", "first_name", "nir", "email"]
     readonly_fields = ["ipp", "status_updated_at", "created_at", "updated_at"]
     inlines = [PatientStatusHistoryInline]
+
+    def readmission_button(self, obj: Patient) -> str:
+        if not obj.pk:
+            return "-"
+        return format_html(
+            '<a href="/core/patients/{}/readmit/?next=/admin/core/patient/" '
+            'style="padding: 4px 8px; border-radius: 6px; font-weight: bold; background: #059669; color: white; text-decoration: none; font-size: 11px; white-space: nowrap;">'
+            '🏥 Réadmission</a>',
+            obj.pk,
+        )
+    readmission_button.short_description = "Réadmission"
 
     def consent_pdf_button(self, obj: Patient) -> str:
         if not obj.pk:
@@ -147,11 +160,11 @@ class PatientAdmin(admin.ModelAdmin):
     current_status_badge.short_description = "Statut Actuel"
 
     def nir_masked(self, obj: Patient) -> str:
-        """Masquage HDS/RGPD du numéro de sécurité sociale dans les listes."""
+        """Masquage HDS/RGPD du numéro de sécurité sociale / carte d'identité dans les listes."""
         if obj.nir and len(obj.nir) >= 5:
             return f"{obj.nir[:3]}*****{obj.nir[-2:]}"
-        return "-"
-    nir_masked.short_description = "NIR (Sécurisé)"
+        return obj.nir or "-"
+    nir_masked.short_description = "N° Sécurité Sociale / Carte d'identité"
 
     def get_readonly_fields(self, request, obj=None):
         ro = list(super().get_readonly_fields(request, obj))

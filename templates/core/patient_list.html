@@ -75,11 +75,6 @@
                     </button>
                     {% endif %}
 
-                    <!-- Barre d'Import / Export Excel de la Liste des Malades -->
-                    <a href="/core/patients/export/excel/?format=xlsx" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors">
-                        📥 Exporter Excel (.xlsx)
-                    </a>
-
                     <a href="/core/clinic-settings/" class="inline-flex items-center px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition-colors">
                         ⚙️ Paramètres Clinique
                     </a>
@@ -170,7 +165,7 @@
                 <!-- Recherche globale (Nom, Prénom, IPP) -->
                 <div class="md:col-span-6">
                     <label for="search_q" class="block text-xs font-semibold text-slate-600 mb-1">
-                        Recherche globale (Nom, Prénom, Nom de naissance, IPP ou NIR)
+                        Recherche globale (Nom, Prénom, Nom de naissance, IPP ou N° Sécurité Sociale / Carte d'identité)
                     </label>
                     <div class="relative">
                         <input
@@ -219,55 +214,6 @@
                     {% endif %}
                 </div>
             </form>
-        </section>
-
-        <!-- Section 2B : Importation & Exportation Excel (.xlsx / .csv) de la Liste des Malades -->
-        <section class="bg-gradient-to-r from-sky-50 via-white to-emerald-50 p-4 sm:p-5 rounded-2xl border border-sky-200 shadow-xs">
-            <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-hospital-600 text-white uppercase tracking-wider">
-                            Excel / CSV
-                        </span>
-                        <h3 class="text-sm font-extrabold text-slate-900">
-                            Importation &amp; Exportation de la Liste des Malades (Dossiers Patients DPI)
-                        </h3>
-                    </div>
-                    <p class="text-xs text-slate-600 mt-1">
-                        Importez une liste de malades depuis un fichier Excel (<code>.xlsx</code>) ou <code>.csv</code> (création automatique de l'IPP et du NIR valide si absents, mise à jour sans doublon) ou exportez l'intégralité des dossiers patients.
-                    </p>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-2.5">
-                    <!-- Formulaire d'Importation Excel / CSV des Malades -->
-                    <form method="post" action="/core/patients/import/excel/" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
-                        {% csrf_token %}
-                        <input
-                            type="file"
-                            name="excel_file"
-                            accept=".xlsx,.csv,.txt"
-                            required
-                            class="text-xs text-slate-700 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-hospital-50 file:text-hospital-700 hover:file:bg-hospital-100 cursor-pointer"
-                        >
-                        <button type="submit" class="px-3.5 py-1.5 rounded-lg bg-hospital-600 hover:bg-hospital-700 text-white text-xs font-extrabold transition-colors whitespace-nowrap shadow-xs">
-                            📤 Importer Malades
-                        </button>
-                    </form>
-
-                    <!-- Boutons d'Exportation Excel (.xlsx), CSV et Modèle Vierge -->
-                    <div class="flex flex-wrap items-center gap-1.5">
-                        <a href="/core/patients/export/excel/?format=xlsx" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors">
-                            📥 Exporter Excel (.xlsx)
-                        </a>
-                        <a href="/core/patients/export/excel/?format=csv" class="inline-flex items-center px-3 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition-colors">
-                            📥 CSV
-                        </a>
-                        <a href="/core/patients/export/excel/?format=xlsx&amp;template=1" class="inline-flex items-center px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition-colors" title="Télécharger un modèle Excel pré-rempli pour importer vos malades">
-                            📄 Modèle Excel (.xlsx)
-                        </a>
-                    </div>
-                </div>
-            </div>
         </section>
 
         <!-- Section 3 : Tableau Principal de la Liste des Patients -->
@@ -380,8 +326,15 @@
                                 </form>
                             </td>
 
-                            <!-- Actions : Consommation Médicament / Facture, Consentement PDF, Historique des Statuts & Fiche DPI -->
+                            <!-- Actions : Réadmission, Consommation Médicament / Facture, Consentement PDF, Historique des Statuts & Fiche DPI -->
                             <td class="py-3.5 px-4 text-right whitespace-nowrap space-x-1.5">
+                                <a
+                                    href="{% url 'core:patient_readmit' patient.id %}?next={{ request.get_full_path|urlencode }}"
+                                    title="Réadmettre ce patient déjà enregistré dans un nouveau séjour hospitalier"
+                                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors"
+                                >
+                                    🏥 Réadmission
+                                </a>
                                 <a
                                     href="/facturation/?patient_id={{ patient.id }}"
                                     title="Imputer une consommation de médicament (FEFO) à ce malade et la reporter sur sa facture"

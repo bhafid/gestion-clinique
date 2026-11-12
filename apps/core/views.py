@@ -13,11 +13,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView, TemplateView
 
@@ -47,7 +49,6 @@ from .models import (
     ShiftReplacementStatus,
     ShiftType,
     UserRole,
-    validate_french_nir,
 )
 from .pdf_consent_service import generate_admission_consent_pdf
 
@@ -1123,22 +1124,34 @@ class ImportPatientsExcelView(LoginRequiredMixin, View):
       si non fourni dans le fichier Excel.
     """
 
+    @staticmethod
+    def _get_redirect_url(request: HttpRequest) -> str:
+        next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or ""
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return next_url
+        return "/admin/core/patient/"
+
     def post(self, request: HttpRequest) -> HttpResponse:
+        redirect_url = self._get_redirect_url(request)
         uploaded_file = request.FILES.get("excel_file")
         if not uploaded_file:
             messages.error(request, "Veuillez sélectionner un fichier Excel (.xlsx) ou CSV (.csv) à importer.")
-            return redirect("/core/patients/")
+            return redirect(redirect_url)
 
         try:
             raw_bytes = uploaded_file.read()
             records = parse_excel_or_csv_bytes(raw_bytes, uploaded_file.name)
         except Exception as exc:
             messages.error(request, f"Erreur de lecture du fichier « {uploaded_file.name} » : {exc}")
-            return redirect("/core/patients/")
+            return redirect(redirect_url)
 
         if not records:
             messages.error(request, "Le fichier importé ne contient aucune ligne de malade exploitable.")
-            return redirect("/core/patients/")
+            return redirect(redirect_url)
 
         created_count = 0
         updated_count = 0
@@ -1185,15 +1198,19 @@ class ImportPatientsExcelView(LoginRequiredMixin, View):
             bg_raw = first_non_empty(rec, ["groupe_sanguin", "blood_group", "groupe", "gs"], default="IND").strip().upper()
             blood_group = valid_blood_groups.get(bg_raw, BloodGroup.INDETERMINE)
 
-            nir_raw = first_non_empty(rec, ["nir_securite_sociale", "nir", "nss", "securite_sociale", "num_securite_sociale"]).strip()
+            nir_raw = first_non_empty(
+                rec,
+                [
+                    "nir_securite_sociale",
+                    "nir",
+                    "nss",
+                    "securite_sociale",
+                    "num_securite_sociale",
+                    "numero_carte_identite",
+                ],
+            ).strip()
             nir_clean = nir_raw.replace(" ", "")
-            nir_is_valid = False
-            if len(nir_clean) == 15:
-                try:
-                    validate_french_nir(nir_clean)
-                    nir_is_valid = True
-                except ValidationError:
-                    nir_is_valid = False
+            nir_is_present = bool(nir_clean)
 
             cni_raw = first_non_empty(rec, ["numero_cni_pc", "cni", "piece_identite", "national_id_number", "nin"]).strip()
             phone = first_non_empty(rec, ["telephone", "tel", "phone", "mobile", "gsm"]).strip()
@@ -1215,7 +1232,7 @@ class ImportPatientsExcelView(LoginRequiredMixin, View):
             existing_patient = None
             if ipp_raw:
                 existing_patient = Patient.objects.filter(ipp__iexact=ipp_raw).first()
-            if not existing_patient and nir_is_valid:
+            if not existing_patient and nir_is_present:
                 existing_patient = Patient.objects.filter(nir=nir_clean).first()
             if not existing_patient:
                 existing_patient = Patient.objects.filter(
@@ -1260,8 +1277,8 @@ class ImportPatientsExcelView(LoginRequiredMixin, View):
                 existing_patient.save()
                 updated_count += 1
             else:
-                # Générer un NIR valide et unique si non fourni ou invalide
-                final_nir = nir_clean if (nir_is_valid and not Patient.objects.filter(nir=nir_clean).exists()) else ""
+                # Utiliser le N° Sécurité Sociale / Carte d'identité fourni (s'il n'est pas déjà pris), sinon en générer un unique
+                final_nir = nir_clean if (nir_is_present and not Patient.objects.filter(nir=nir_clean).exists()) else ""
                 seed_offset = Patient.objects.count() + idx + 100
                 while not final_nir:
                     candidate_nir = generate_valid_nir_for_patient(birth_date, gender, unique_seed=seed_offset)
@@ -1313,7 +1330,7 @@ class ImportPatientsExcelView(LoginRequiredMixin, View):
             f"{created_count} nouveau(x) patient(s) créé(s), {updated_count} dossier(s) mis à jour"
             + (f", {skipped_count} ligne(s) ignorée(s)." if skipped_count else "."),
         )
-        return redirect("/core/patients/")
+        return redirect(redirect_url)
 
 
 class ClinicSettingsView(LoginRequiredMixin, View):
@@ -1405,6 +1422,191 @@ class ClinicSettingsView(LoginRequiredMixin, View):
             f"{etab.adresse_complete} — Tél : {etab.telephone} — Email : {etab.email}).",
         )
         return redirect("/core/clinic-settings/")
+
+
+class PatientReadmitView(LoginRequiredMixin, View):
+    """
+    Réadmission d'un patient déjà enregistré dans le système :
+    - Affiche l'identité du patient, ses séjours précédents et les lits disponibles.
+    - Crée un nouveau séjour hospitalier (Hospitalization) sans dupliquer le dossier patient,
+      bascule le lit à OCCUPÉ, met à jour le statut du patient à ADMISSION et journalise l'action HDS.
+    """
+
+    template_name = "core/patient_readmit.html"
+
+    @staticmethod
+    def _get_safe_next_url(request: HttpRequest, fallback: str) -> str:
+        candidate = request.POST.get("next") or request.GET.get("next") or ""
+        if candidate and url_has_allowed_host_and_scheme(
+            candidate,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return candidate
+        return fallback
+
+    @staticmethod
+    def _is_discharged_status(patient: Patient) -> bool:
+        return bool(
+            patient.current_status
+            and (patient.current_status.code == "SORTIE" or patient.current_status.is_terminal)
+        )
+
+    def _build_context(self, request: HttpRequest, patient: Patient) -> Dict[str, Any]:
+        active_hospitalization = (
+            None
+            if self._is_discharged_status(patient)
+            else patient.hospitalizations.filter(actual_discharge_date__isnull=True)
+            .select_related("bed__service", "practitioner")
+            .first()
+        )
+        available_beds = (
+            Bed.objects.filter(status=BedStatus.DISPONIBLE)
+            .select_related("service")
+            .order_by("service__name", "room_number", "bed_number")
+        )
+        practitioners = CustomUser.objects.filter(
+            role__in=[UserRole.MEDECIN, UserRole.CHIRURGIEN, UserRole.ADMIN],
+            is_active=True,
+        ).order_by("last_name", "first_name")
+        past_hospitalizations = (
+            patient.hospitalizations.select_related("bed__service", "practitioner")
+            .order_by("-admission_date")
+        )
+        now_local = timezone.localtime(timezone.now())
+        default_expected_discharge = (now_local + timedelta(days=3)).strftime("%Y-%m-%dT%H:%M")
+
+        return {
+            "patient": patient,
+            "active_hospitalization": active_hospitalization,
+            "available_beds": available_beds,
+            "practitioners": practitioners,
+            "past_hospitalizations": past_hospitalizations,
+            "hide_entry_diagnosis": getattr(request.user, "role", None) == UserRole.GESTIONNAIRE_ADMISSION,
+            "default_admission_date": now_local.strftime("%Y-%m-%dT%H:%M"),
+            "default_expected_discharge": default_expected_discharge,
+            "next_url": self._get_safe_next_url(request, reverse("core:patient_list")),
+        }
+
+    def get(self, request: HttpRequest, pk: int) -> HttpResponse:
+        patient = get_object_or_404(Patient.objects.select_related("current_status"), pk=pk)
+        return render(request, self.template_name, self._build_context(request, patient))
+
+    def post(self, request: HttpRequest, pk: int) -> HttpResponse:
+        patient = get_object_or_404(Patient.objects.select_related("current_status"), pk=pk)
+        next_url = self._get_safe_next_url(request, reverse("core:patient_list"))
+
+        is_discharged = self._is_discharged_status(patient)
+        if patient.hospitalizations.filter(actual_discharge_date__isnull=True).exists() and not is_discharged:
+            messages.error(
+                request,
+                f"Le patient {patient.last_name.upper()} {patient.first_name} ({patient.ipp}) "
+                f"a déjà une hospitalisation en cours. Clôturez le séjour actuel avant une réadmission.",
+            )
+            return redirect(request.path + (f"?next={next_url}" if next_url else ""))
+
+        bed_id = request.POST.get("bed_id", "").strip()
+        practitioner_id = request.POST.get("practitioner_id", "").strip()
+        admission_date_raw = request.POST.get("admission_date", "").strip()
+        expected_discharge_raw = request.POST.get("expected_discharge_date", "").strip()
+        admission_reason = request.POST.get("admission_reason", "").strip()
+        entry_diagnosis = ""
+        if getattr(request.user, "role", None) != UserRole.GESTIONNAIRE_ADMISSION:
+            entry_diagnosis = request.POST.get("entry_diagnosis", "").strip()
+
+        bed = Bed.objects.select_related("service").filter(pk=bed_id).first() if bed_id.isdigit() else None
+        if not bed:
+            messages.error(request, "Veuillez sélectionner un lit disponible pour la réadmission.")
+            return render(request, self.template_name, self._build_context(request, patient), status=400)
+
+        if not admission_reason:
+            messages.error(request, "Veuillez renseigner le motif de réadmission.")
+            return render(request, self.template_name, self._build_context(request, patient), status=400)
+
+        practitioner = (
+            CustomUser.objects.filter(pk=practitioner_id, is_active=True).first()
+            if practitioner_id.isdigit()
+            else None
+        )
+
+        now_dt = timezone.now()
+        try:
+            admission_dt = datetime.fromisoformat(admission_date_raw) if admission_date_raw else now_dt
+            if timezone.is_naive(admission_dt):
+                admission_dt = timezone.make_aware(admission_dt, timezone.get_current_timezone())
+        except ValueError:
+            admission_dt = now_dt
+
+        try:
+            expected_dt = (
+                datetime.fromisoformat(expected_discharge_raw)
+                if expected_discharge_raw
+                else admission_dt + timedelta(days=3)
+            )
+            if timezone.is_naive(expected_dt):
+                expected_dt = timezone.make_aware(expected_dt, timezone.get_current_timezone())
+        except ValueError:
+            expected_dt = admission_dt + timedelta(days=3)
+
+        hosp = Hospitalization(
+            patient=patient,
+            bed=bed,
+            practitioner=practitioner,
+            admission_date=admission_dt,
+            expected_discharge_date=expected_dt,
+            admission_reason=admission_reason,
+            entry_diagnosis=entry_diagnosis,
+        )
+
+        try:
+            with transaction.atomic():
+                if is_discharged:
+                    for old_hosp in patient.hospitalizations.filter(actual_discharge_date__isnull=True):
+                        old_hosp.actual_discharge_date = admission_dt
+                        old_hosp.save()
+
+                hosp.full_clean()
+                hosp.save()
+
+                PatientStatusConfig.ensure_default_statuses()
+                admission_status = PatientStatusConfig.objects.filter(code="ADMISSION", is_active=True).first()
+                old_status = patient.current_status
+                if admission_status:
+                    patient.current_status = admission_status
+                    patient.status_updated_at = timezone.now()
+                    patient.save(update_fields=["current_status", "status_updated_at", "updated_at"])
+
+                    PatientStatusHistory.objects.create(
+                        patient=patient,
+                        old_status=old_status,
+                        new_status=admission_status,
+                        changed_by=request.user,
+                        comment=f"Réadmission patient — Lit {bed.service.name} (Ch. {bed.room_number} / Lit {bed.bed_number}) : {admission_reason[:150]}",
+                    )
+
+                SecurityAuditLog.log_action(
+                    user=request.user,
+                    action_type=AuditActionType.CREATE,
+                    patient=patient,
+                    resource_name="Hospitalization (Réadmission)",
+                    details=(
+                        f"Réadmission du patient {patient.last_name.upper()} {patient.first_name} ({patient.ipp}) "
+                        f"sur le lit {bed} (Séjour #{hosp.id})."
+                    ),
+                    ip_address=request.META.get("REMOTE_ADDR"),
+                )
+        except ValidationError as exc:
+            error_msg = "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
+            messages.error(request, f"Impossible d'enregistrer la réadmission : {error_msg}")
+            return render(request, self.template_name, self._build_context(request, patient), status=400)
+
+        messages.success(
+            request,
+            f"Réadmission enregistrée pour {patient.last_name.upper()} {patient.first_name} ({patient.ipp}) "
+            f"— Lit {bed.service.name} • Ch. {bed.room_number} / Lit {bed.bed_number}.",
+        )
+        return redirect(next_url)
+
 
 
 

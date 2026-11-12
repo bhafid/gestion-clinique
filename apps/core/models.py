@@ -505,11 +505,10 @@ class Patient(AuditableModel):
         help_text="Format normalisé : IPP-YYYY-XXXXXX",
     )
     nir = models.CharField(
-        max_length=15,
+        max_length=50,
         unique=True,
-        validators=[validate_french_nir],
-        verbose_name="Numéro de Sécurité Sociale (NIR)",
-        help_text="15 caractères avec clé de contrôle",
+        verbose_name="Numéro de Sécurité Sociale / Numéro de carte d'identité",
+        help_text="Identifiant unique (aucun format imposé, vérification des doublons uniquement)",
     )
     last_name = models.CharField(max_length=100, verbose_name="Nom usuel")
     first_name = models.CharField(max_length=100, verbose_name="Prénom")
@@ -615,17 +614,23 @@ class Patient(AuditableModel):
 
         old_status = self.current_status
         now = timezone.now()
-        self.current_status = new_status
-        self.status_updated_at = now
-        self.save(update_fields=["current_status", "status_updated_at", "updated_at"])
+        with transaction.atomic():
+            self.current_status = new_status
+            self.status_updated_at = now
+            self.save(update_fields=["current_status", "status_updated_at", "updated_at"])
 
-        return PatientStatusHistory.objects.create(
-            patient=self,
-            old_status=old_status,
-            new_status=new_status,
-            changed_by=changed_by,
-            comment=comment,
-        )
+            if new_status.is_terminal:
+                for active_hosp in self.hospitalizations.filter(actual_discharge_date__isnull=True):
+                    active_hosp.actual_discharge_date = now
+                    active_hosp.save()
+
+            return PatientStatusHistory.objects.create(
+                patient=self,
+                old_status=old_status,
+                new_status=new_status,
+                changed_by=changed_by,
+                comment=comment,
+            )
 
 
 class PatientStatusHistory(models.Model):

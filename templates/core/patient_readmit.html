@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Réadmission Patient — {{ patient.last_name|upper }} {{ patient.first_name }} | Clinique Sidi Yahia 2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-full flex flex-col text-slate-800 antialiased">
+
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <a href="{% url 'home_dashboard' %}" class="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1 shadow-2xs shrink-0">
+                    <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique Sidi Yahia 2" class="max-h-full max-w-full object-contain">
+                </a>
+                <div>
+                    <h1 class="text-lg font-extrabold text-slate-900">
+                        🏥 Réadmission d'un Patient Existant
+                    </h1>
+                    <p class="text-xs text-slate-500">
+                        Clinique Sidi Yahia 2 &bull; Nouveau séjour hospitalier sans création de doublon DPI
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="{{ next_url }}" class="inline-flex items-center px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors">
+                    &larr; Retour
+                </a>
+                <a href="/admin/core/patient/{{ patient.id }}/change/" class="inline-flex items-center px-3.5 py-2 rounded-xl border border-hospital-200 bg-hospital-50 hover:bg-hospital-100 text-xs font-bold text-hospital-700 transition-colors">
+                    Dossier DPI
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-3.5 rounded-xl border text-sm font-medium {% if message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Fiche Identité Patient -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-hospital-50 text-hospital-700 border border-hospital-200">
+                            {{ patient.ipp }}
+                        </span>
+                        {% if patient.current_status %}
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border {{ patient.current_status.badge_classes }}">
+                            ● {{ patient.current_status.label }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <h2 class="text-xl font-extrabold text-slate-900 mt-2">
+                        {{ patient.last_name|upper }} {{ patient.first_name }}
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Né(e) le {{ patient.birth_date|date:"d/m/Y" }} &bull;
+                        Groupe : <strong>{{ patient.blood_group|default:"-" }}</strong> &bull;
+                        N° Sécurité Sociale / Carte d'identité : <span class="font-mono">{{ patient.nir|default:"-" }}</span>
+                    </p>
+                </div>
+                {% if patient.known_allergies %}
+                <div class="px-3.5 py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 max-w-xs">
+                    <div class="font-extrabold uppercase tracking-wide text-[10px]">Allergies connues</div>
+                    <div class="mt-0.5 font-semibold">{{ patient.known_allergies }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        {% if active_hospitalization %}
+        <!-- Alerte séjour déjà en cours -->
+        <section class="bg-amber-50 border border-amber-300 rounded-2xl p-5 space-y-2">
+            <h3 class="text-sm font-extrabold text-amber-900">
+                ⚠ Hospitalisation actuellement en cours
+            </h3>
+            <p class="text-xs text-amber-800">
+                Ce patient est déjà hospitalisé depuis le <strong>{{ active_hospitalization.admission_date|date:"d/m/Y H:i" }}</strong>
+                sur le lit <strong>{{ active_hospitalization.bed }}</strong>.
+                Veuillez clôturer (saisir la date de sortie réelle) le séjour actuel avant d'enregistrer une nouvelle réadmission.
+            </p>
+            <div class="pt-1">
+                <a href="/admin/core/hospitalization/{{ active_hospitalization.id }}/change/" class="inline-flex items-center px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors">
+                    Ouvrir le séjour en cours &rarr;
+                </a>
+            </div>
+        </section>
+        {% else %}
+        <!-- Formulaire de Réadmission -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 bg-slate-50/70">
+                <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                    Nouveau Séjour Hospitalier (Réadmission)
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">
+                    Le lit sélectionné passera automatiquement au statut <strong>Occupé</strong> et le patient passera au statut <strong>Admission</strong>.
+                </p>
+            </div>
+
+            <form method="post" class="p-5 space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next_url }}">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="bed_id" class="block text-xs font-bold text-slate-700 mb-1">
+                            Lit disponible à affecter *
+                        </label>
+                        <select id="bed_id" name="bed_id" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:border-hospital-600 focus:outline-none">
+                            <option value="">-- Sélectionner un lit disponible --</option>
+                            {% for bed in available_beds %}
+                            <option value="{{ bed.id }}">
+                                {{ bed.service.name }} — Chambre {{ bed.room_number }} / Lit {{ bed.bed_number }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if not available_beds %}
+                        <p class="text-xs text-rose-600 mt-1 font-semibold">
+                            Aucun lit disponible actuellement. Libérez ou validez le nettoyage d'un lit depuis le Cockpit.
+                        </p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="practitioner_id" class="block text-xs font-bold text-slate-700 mb-1">
+                            Médecin référent
+                        </label>
+                        <select id="practitioner_id" name="practitioner_id" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-hospital-600 focus:outline-none">
+                            <option value="">-- Non spécifié --</option>
+                            {% for doc in practitioners %}
+                            <option value="{{ doc.id }}">
+                                {{ doc.get_full_name|default:doc.username }} ({{ doc.get_role_display }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="admission_date" class="block text-xs font-bold text-slate-700 mb-1">
+                            Date et heure de réadmission *
+                        </label>
+                        <input id="admission_date" type="datetime-local" name="admission_date" value="{{ default_admission_date }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-hospital-600 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label for="expected_discharge_date" class="block text-xs font-bold text-slate-700 mb-1">
+                            Date prévisionnelle de sortie *
+                        </label>
+                        <input id="expected_discharge_date" type="datetime-local" name="expected_discharge_date" value="{{ default_expected_discharge }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-hospital-600 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="admission_reason" class="block text-xs font-bold text-slate-700 mb-1">
+                        Motif de réadmission *
+                    </label>
+                    <textarea id="admission_reason" name="admission_reason" rows="3" required placeholder="Ex : Contrôle post-opératoire, rechute, nouvelle intervention..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-hospital-600 focus:outline-none"></textarea>
+                </div>
+
+                {% if not hide_entry_diagnosis %}
+                <div>
+                    <label for="entry_diagnosis" class="block text-xs font-bold text-slate-700 mb-1">
+                        Diagnostic principal d'entrée (optionnel)
+                    </label>
+                    <input id="entry_diagnosis" type="text" name="entry_diagnosis" placeholder="Diagnostic médical d'entrée..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-hospital-600 focus:outline-none">
+                </div>
+                {% endif %}
+
+                <div class="pt-2 flex items-center justify-end gap-3">
+                    <a href="{{ next_url }}" class="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+                        Annuler
+                    </a>
+                    <button type="submit" {% if not available_beds %}disabled{% endif %} class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-extrabold shadow-xs transition-colors">
+                        🏥 Confirmer la Réadmission
+                    </button>
+                </div>
+            </form>
+        </section>
+        {% endif %}
+
+        <!-- Historique des Séjours Précédents -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 bg-slate-50/70">
+                <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                    Historique des Séjours Hospitaliers ({{ past_hospitalizations|length }})
+                </h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-xs">
+                    <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider text-[11px]">
+                        <tr>
+                            <th class="py-3 px-4 text-left">Admission</th>
+                            <th class="py-3 px-4 text-left">Sortie</th>
+                            <th class="py-3 px-4 text-left">Service / Lit</th>
+                            <th class="py-3 px-4 text-left">Motif</th>
+                            <th class="py-3 px-4 text-left">Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for hosp in past_hospitalizations %}
+                        <tr class="hover:bg-slate-50/80">
+                            <td class="py-3 px-4 font-medium text-slate-900">{{ hosp.admission_date|date:"d/m/Y H:i" }}</td>
+                            <td class="py-3 px-4 text-slate-600">
+                                {% if hosp.actual_discharge_date %}
+                                    {{ hosp.actual_discharge_date|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    <span class="text-amber-700 font-semibold">En cours (prév. {{ hosp.expected_discharge_date|date:"d/m/Y" }})</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-slate-700">{{ hosp.bed }}</td>
+                            <td class="py-3 px-4 text-slate-600">{{ hosp.admission_reason|truncatechars:80 }}</td>
+                            <td class="py-3 px-4">
+                                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold {% if hosp.status == 'EN_COURS' %}bg-sky-50 text-sky-700 border border-sky-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+                                    {{ hosp.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="py-6 px-4 text-center text-slate-400">
+                                Aucun séjour hospitalier enregistré précédemment pour ce patient.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+</body>
+</html>
+
