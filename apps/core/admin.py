@@ -153,7 +153,7 @@ class PatientAdmin(admin.ModelAdmin):
         if not obj.current_status:
             return "-"
         return format_html(
-            '<span style="padding: 4px 10px; border-radius: 9999px; font-weight: bold; background: {}; color: white;">● {}</span>',
+            '<span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-weight: bold; background: {}; color: white; white-space: nowrap; font-size: 11px;">● {}</span>',
             obj.current_status.hex_color or "#0284C7",
             obj.current_status.label,
         )

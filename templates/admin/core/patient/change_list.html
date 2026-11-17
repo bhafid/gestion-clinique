@@ -1,5 +1,17 @@
 {% extends "admin/change_list.html" %}
 
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* Forcer la colonne Statut Actuel à rester sur une seule ligne et lui donner de l'espace */
+    #result_list th.column-current_status_badge,
+    #result_list td.field-current_status_badge {
+        white-space: nowrap !important;
+        min-width: 170px !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div style="margin-bottom: 18px; padding: 14px 18px; border-radius: 10px; border: 1px solid #7dd3fc; background: linear-gradient(90deg, #f0f9ff 0%, #ffffff 55%, #ecfdf5 100%); color: #0f172a; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);">
     <div style="flex: 1 1 320px;">
