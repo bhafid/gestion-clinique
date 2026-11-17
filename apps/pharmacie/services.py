@@ -355,6 +355,38 @@ def receptionner_livraison_commande(
         ligne.quantite_recue += qte_recue_maintenant
         ligne.save(update_fields=["quantite_recue", "updated_at"])
 
+        # Intégration WMS : Rangement optionnel dans un Bac d'Entrepôt
+        storage_bin_id = rec.get("storage_bin_id")
+        if storage_bin_id:
+            try:
+                from apps.entrepot.models import StorageBin, BinInventory, StorageBinStatus
+                bin_obj = StorageBin.objects.select_for_update().get(pk=int(storage_bin_id))
+                if bin_obj.status == StorageBinStatus.MAINTENANCE:
+                    raise ValidationError(f"Le bac {bin_obj.code} est actuellement en maintenance.")
+                if bin_obj.available_capacity < Decimal(str(qte_recue_maintenant)):
+                    raise ValidationError(
+                        f"Capacité insuffisante dans le bac {bin_obj.code} "
+                        f"(Disponible: {bin_obj.available_capacity}, Requis: {qte_recue_maintenant})."
+                    )
+                bin_inv, _ = BinInventory.objects.select_for_update().get_or_create(
+                    bin=bin_obj,
+                    product=produit,
+                    defaults={"quantity": 0},
+                )
+                bin_inv.quantity += qte_recue_maintenant
+                bin_inv.save()
+                bin_obj.update_load_and_status(save=True)
+
+                # Associer le bac de rangement au lot physique et mettre à jour l'emplacement
+                lot.storage_bin = bin_obj
+                lot.emplacement_physique = f"Bac {bin_obj.code} ({bin_obj.warehouse.name})"
+                lot.save(update_fields=["storage_bin", "emplacement_physique", "updated_at"])
+            except Exception as bin_err:
+                if isinstance(bin_err, ValidationError):
+                    raise
+                # Si erreur de parsing non-bloquante
+                pass
+
         # Journalisation MouvementStock
         MouvementStock.objects.create(
             lot=lot,

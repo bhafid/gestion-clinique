@@ -282,6 +282,47 @@ class ProduitPharmaceutique(AuditableModel):
             return "ORANGE"
         return "VERT"
 
+    @property
+    def entrepots_et_bacs(self) -> list:
+        """
+        Retourne la liste dédoublonnée des entrepôts et bacs où ce produit est actuellement stocké,
+        en combinant les bacs déclarés sur ses lots actifs et les inventaires WMS.
+        """
+        emplacements = []
+        vus = set()
+
+        # 1. Via les Lots avec storage_bin direct
+        for lot in self.lots.all():
+            if lot.storage_bin and lot.quantite_disponible > 0:
+                cle = (lot.storage_bin.warehouse.name, lot.storage_bin.code)
+                if cle not in vus:
+                    vus.add(cle)
+                    emplacements.append({
+                        "warehouse_name": lot.storage_bin.warehouse.name,
+                        "bin_code": lot.storage_bin.code,
+                        "bin_id": lot.storage_bin.id,
+                        "quantity": lot.quantite_disponible,
+                        "source": "Lot",
+                    })
+
+        # 2. Via les inventaires WMS (BinInventory)
+        try:
+            for inv in self.bin_locations.select_related("bin__warehouse").filter(quantity__gt=0):
+                cle = (inv.bin.warehouse.name, inv.bin.code)
+                if cle not in vus:
+                    vus.add(cle)
+                    emplacements.append({
+                        "warehouse_name": inv.bin.warehouse.name,
+                        "bin_code": inv.bin.code,
+                        "bin_id": inv.bin.id,
+                        "quantity": inv.quantity,
+                        "source": "WMS",
+                    })
+        except Exception:
+            pass
+
+        return emplacements
+
 
 # -----------------------------------------------------------------------------
 # 3. Lot de Stock (Traçabilité Sanitaire & FEFO)
@@ -315,6 +356,14 @@ class LotStock(AuditableModel):
         max_length=120,
         default="Rayon A1 - Pharmacie Centrale",
         verbose_name="Emplacement physique (Rayon / Armoire / Frigo)",
+    )
+    storage_bin = models.ForeignKey(
+        "entrepot.StorageBin",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pharmacie_lots",
+        verbose_name="Bac de rangement (Entrepôt WMS)",
     )
     statut = models.CharField(
         max_length=25,

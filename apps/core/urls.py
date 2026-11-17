@@ -2,6 +2,10 @@
 from django.urls import path
 from .views import (
     ClinicSettingsView,
+    DatabaseBackupRestoreView,
+    DatabaseBackupView,
+    DatabaseDownloadLocalBackupView,
+    DatabaseRestoreView,
     ExportPatientsExcelView,
     ImportPatientsExcelView,
     PatientListView,
@@ -23,6 +27,10 @@ urlpatterns = [
     path("", WeeklyDashboardView.as_view(), name="weekly_dashboard"),
     path("dashboard/", WeeklyDashboardView.as_view(), name="dashboard"),
     path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic_settings"),
+    path("database/", DatabaseBackupRestoreView.as_view(), name="database_dashboard"),
+    path("database/backup/", DatabaseBackupView.as_view(), name="database_backup"),
+    path("database/restore/", DatabaseRestoreView.as_view(), name="database_restore"),
+    path("database/download-local/", DatabaseDownloadLocalBackupView.as_view(), name="database_download_local"),
 
     # Actions rapides Cockpit Supervision (Lits & Remplacements de Garde)
     path("beds/<int:pk>/quick-status/", quick_bed_status_action_view, name="quick_bed_status"),

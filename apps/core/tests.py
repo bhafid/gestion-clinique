@@ -698,6 +698,72 @@ class CoreModuleTestCase(TestCase):
             1,
         )
 
+    def test_database_backup_and_restore(self) -> None:
+        """
+        Vérifie la sécurité et le fonctionnement du module Backup & Restore complet :
+        - Un utilisateur non-administrateur (médecin) reçoit 403 Forbidden.
+        - Un administrateur peut télécharger la sauvegarde SQLite (.sqlite3) et JSON (.json).
+        - Un fichier SQLite invalide envoyé au restore est rejeté proprement.
+        - Un fichier JSON valide est restauré sans erreur.
+        """
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        admin_user = CustomUser.objects.create_user(
+            username="admin_backup_test",
+            password="Password123!",
+            role=UserRole.ADMIN,
+            is_staff=True,
+            is_superuser=True,
+        )
+
+        backup_url = reverse("core:database_backup")
+        restore_url = reverse("core:database_restore")
+
+        # 1. Non-admin bloqué (403)
+        client = Client()
+        client.force_login(self.doctor_chir)
+        self.assertEqual(client.get(backup_url).status_code, 403)
+        self.assertEqual(client.post(restore_url).status_code, 403)
+
+        # 2. Admin : Backup SQLite et Backup JSON
+        client.force_login(admin_user)
+        res_sqlite = client.get(f"{backup_url}?format=sqlite")
+        self.assertEqual(res_sqlite.status_code, 200)
+        self.assertTrue(res_sqlite.content.startswith(b"SQLite format 3\x00"))
+
+        res_json = client.get(f"{backup_url}?format=json")
+        self.assertEqual(res_json.status_code, 200)
+        self.assertIn(b"core.customuser", res_json.content)
+
+        # 3. Admin : Rejet d'un faux fichier SQLite
+        bad_sqlite = SimpleUploadedFile("bad.sqlite3", b"NOT_A_SQLITE_FILE", content_type="application/octet-stream")
+        res_bad = client.post(restore_url, {"backup_file": bad_sqlite})
+        self.assertEqual(res_bad.status_code, 302)
+
+        # 4. Admin : Restauration JSON valide
+        json_upload = SimpleUploadedFile("backup.json", res_json.content, content_type="application/json")
+        res_ok = client.post(restore_url, {"backup_file": json_upload})
+        self.assertEqual(res_ok.status_code, 302)
+
+        # 5. Admin : Full Backup ZIP (.zip)
+        res_zip = client.get(f"{backup_url}?format=zip")
+        self.assertEqual(res_zip.status_code, 200)
+        self.assertEqual(res_zip["Content-Type"], "application/zip")
+        import zipfile
+        import io
+        with zipfile.ZipFile(io.BytesIO(res_zip.content), "r") as zf:
+            namelist = zf.namelist()
+            self.assertIn("manifest.json", namelist)
+            has_db = any(n.endswith(".sqlite3") or n.endswith(".json") for n in namelist)
+            self.assertTrue(has_db)
+
+        # 6. Admin : Dashboard Sauvegardes & Restauration (200 OK)
+        dash_url = reverse("core:database_dashboard")
+        res_dash = client.get(dash_url)
+        self.assertEqual(res_dash.status_code, 200)
+        self.assertContains(res_dash, "Sauvegardes &amp; Restauration")
+
+
 
 
 

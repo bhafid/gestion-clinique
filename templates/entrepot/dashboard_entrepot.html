@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion d'Entrepôt &amp; Bacs (WMS) | Clinique Sidi Yahia 2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-full flex flex-col text-slate-800 antialiased">
+
+    <!-- En-tête Navigation Principale -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+            <div class="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-3.5">
+                <div class="flex items-center gap-4 sm:gap-5 min-w-0">
+                    <a href="{% url 'home_dashboard' %}" class="w-14 h-16 sm:w-16 sm:h-20 rounded-2xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0 hover:border-hospital-500 transition-colors">
+                        <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique" class="h-full w-auto object-contain">
+                    </a>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                                📦 Entrepôt &amp; Bacs de Rangement (WMS)
+                            </h1>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-hospital-50 text-hospital-700 border border-hospital-200">
+                                Traçabilité Transactionnelle ACID
+                            </span>
+                        </div>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                            Clinique Sidi Yahia 2 &bull; Gestion des alvéoles, transferts de stock inter-bacs et facturation d'occupation
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 xl:justify-end">
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs font-bold text-slate-800">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border border-hospital-200 bg-hospital-50 text-hospital-700">
+                            {{ request.user.get_role_display|default:"Utilisateur" }}
+                        </span>
+                    </div>
+
+                    <button type="button" onclick="openTransferModal()" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-extrabold bg-hospital-600 hover:bg-hospital-700 text-white shadow-xs transition-colors">
+                        🔄 Nouveau Transfert
+                    </button>
+
+                    <button type="button" onclick="openBinModal()" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-colors">
+                        + Ajouter un Bac
+                    </button>
+
+                    <a href="{% url 'entrepot:transfer_list' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition-colors">
+                        📋 Historique Transferts
+                    </a>
+
+                    <a href="{% url 'entrepot:billing_dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition-colors">
+                        💰 Facturation Bacs
+                    </a>
+
+                    <a href="/pharmacie/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors">
+                        💊 Pharmacie
+                    </a>
+
+                    <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3 py-2 border border-slate-300 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors">
+                        &larr; Cockpit
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Messages Flash -->
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-4 rounded-xl border text-xs font-bold flex items-center justify-between
+                {% if message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% elif message.tags == 'warning' %}bg-amber-50 border-amber-200 text-amber-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full {% if message.tags == 'error' %}bg-rose-500{% elif message.tags == 'warning' %}bg-amber-500{% else %}bg-emerald-500{% endif %}"></span>
+                    <span>{{ message }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- KPIs d'Occupation et de Capacité WMS -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Bacs</div>
+                <div class="text-2xl font-black text-slate-900 mt-1">{{ total_bins }}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">{{ warehouses|length }} entrepôt(s) actif(s)</div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Disponibles (Vides)</div>
+                <div class="text-2xl font-black text-emerald-600 mt-1">{{ available_bins_count }}</div>
+                <div class="text-[11px] text-emerald-600 mt-0.5">Prêts à l'affectation</div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-sky-200 bg-sky-50/20 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-sky-700">Partiellement Occupés</div>
+                <div class="text-2xl font-black text-sky-600 mt-1">{{ occupied_bins_count }}</div>
+                <div class="text-[11px] text-sky-600 mt-0.5">Espace encore libre</div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-rose-200 bg-rose-50/20 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-rose-700">Bacs Pleins</div>
+                <div class="text-2xl font-black text-rose-600 mt-1">{{ full_bins_count }}</div>
+                <div class="text-[11px] text-rose-600 mt-0.5">Capacité maximale atteinte</div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-300 bg-slate-50 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-600">En Maintenance</div>
+                <div class="text-2xl font-black text-slate-700 mt-1">{{ maintenance_bins_count }}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Transferts bloqués</div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-hospital-200 bg-hospital-50/30 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-hospital-800">Unités en Stock</div>
+                <div class="text-2xl font-black text-hospital-700 mt-1">{{ total_units_stored }}</div>
+                <div class="text-[11px] text-hospital-600 mt-0.5">Taux global : {{ global_fill_percent }}%</div>
+            </div>
+        </div>
+
+        <!-- Barre de Filtres et Recherche -->
+        <section class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <form method="get" class="flex flex-wrap items-center gap-3">
+                <div class="flex-1 min-w-[200px]">
+                    <input
+                        type="text"
+                        name="q"
+                        value="{{ search_query }}"
+                        placeholder="Rechercher un code bac (ex: A-01-B2), produit ou client..."
+                        class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-800 focus:bg-white focus:border-hospital-600 focus:outline-none"
+                    >
+                </div>
+
+                <div>
+                    <select name="warehouse_id" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-hospital-600 focus:outline-none">
+                        <option value="">Tous les entrepôts</option>
+                        {% for wh in warehouses %}
+                        <option value="{{ wh.id }}" {% if selected_warehouse_id == wh.id|stringformat:"s" %}selected{% endif %}>
+                            {{ wh.name }} ({{ wh.code }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <select name="status" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-hospital-600 focus:outline-none">
+                        <option value="">Tous les statuts</option>
+                        {% for code, label in statuses %}
+                        <option value="{{ code }}" {% if selected_status == code %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <select name="client_id" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-hospital-600 focus:outline-none">
+                        <option value="">Tous les clients</option>
+                        {% for cl in clients %}
+                        <option value="{{ cl.id }}" {% if selected_client_id == cl.id|stringformat:"s" %}selected{% endif %}>
+                            {{ cl.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-hospital-700 text-white text-xs font-bold transition-colors">
+                        Filtrer
+                    </button>
+                    {% if search_query or selected_warehouse_id or selected_status or selected_client_id %}
+                    <a href="{% url 'entrepot:dashboard' %}" class="px-3 py-2 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-bold">
+                        Réinitialiser
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </section>
+
+        <!-- Grille Visuelle des Bacs de Rangement -->
+        <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-extrabold uppercase tracking-wider text-slate-900">
+                    Bacs de Rangement ({{ bins|length }} affiché{{ bins|length|pluralize }})
+                </h2>
+                <div class="flex items-center gap-2 text-xs text-slate-500">
+                    <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Disponible</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span> Occupé</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Plein</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Maintenance</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {% for b in bins %}
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden">
+                    <div class="p-4 space-y-3">
+                        <!-- En-tête du Bac -->
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-base font-black font-mono text-slate-900">{{ b.code }}</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold border {{ b.badge_css_class }}">
+                                        {{ b.get_status_display }}
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-0.5 font-medium">
+                                    🏢 {{ b.warehouse.name }}
+                                    {% if b.zone_allee or b.rack_niveau %}
+                                    &bull; Allée: {{ b.zone_allee|default:"-" }} / Rack: {{ b.rack_niveau|default:"-" }}
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <a href="{% url 'entrepot:bin_barcode' b.id %}" target="_blank" title="Imprimer le Code-barres" class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-bold">
+                                    🏷️
+                                </a>
+                                <a href="{% url 'entrepot:bin_qrcode' b.id %}" target="_blank" title="Afficher le QR Code" class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-bold">
+                                    📱
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Jauge de Remplissage / Capacité -->
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-slate-500 font-semibold">Occupation :</span>
+                                <span class="font-bold text-slate-900 font-mono">
+                                    {{ b.current_load|floatformat:0 }} / {{ b.capacity|floatformat:0 }}
+                                    <span class="text-[11px] text-slate-500">({{ b.fill_rate_percent }}%)</span>
+                                </span>
+                            </div>
+                            <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                                <div
+                                    class="h-full rounded-full transition-all {% if b.status == 'MAINTENANCE' %}bg-slate-400{% elif b.fill_rate_percent < 70 %}bg-emerald-500{% elif b.fill_rate_percent < 100 %}bg-amber-500{% else %}bg-rose-500{% endif %}"
+                                    style="width: {{ b.fill_rate_percent }}%;"
+                                ></div>
+                            </div>
+                            <div class="flex justify-between text-[11px] text-slate-500 font-medium pt-0.5">
+                                <span>Dispo : <strong>{{ b.available_capacity|floatformat:0 }}</strong></span>
+                                {% if b.daily_rate > 0 or b.monthly_rate > 0 %}
+                                <span class="text-amber-800 font-bold">
+                                    {% if b.monthly_rate > 0 %}{{ b.monthly_rate }} DA/mois{% else %}{{ b.daily_rate }} DA/j{% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Client Affecté (si bac loué) -->
+                        {% if b.client %}
+                        <div class="p-2 rounded-xl bg-amber-50/70 border border-amber-200 text-xs flex items-center justify-between">
+                            <span class="text-amber-900 font-bold truncate">👤 {{ b.client.name }}</span>
+                            <span class="text-[10px] uppercase font-extrabold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Loué</span>
+                        </div>
+                        {% endif %}
+
+                        <!-- Contenu du bac (Articles stockés) -->
+                        <div class="border-t border-slate-100 pt-2 space-y-1">
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Contenu ({{ b.inventories.count }})</div>
+                            {% for inv in b.inventories.all %}
+                            <div class="flex items-center justify-between text-xs py-0.5">
+                                <span class="truncate text-slate-800 font-medium" title="{{ inv.product.nom_commercial }} ({{ inv.product.code_cip_ean13 }})">
+                                    &bull; {{ inv.product.nom_commercial }}
+                                </span>
+                                <span class="font-black text-slate-900 font-mono ml-2 shrink-0">x{{ inv.quantity }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="text-xs text-slate-400 italic py-1">Bac vide (aucun article).</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Barre d'Actions du Bac -->
+                    <div class="p-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between gap-1.5">
+                        <button
+                            type="button"
+                            onclick="openTransferModal({{ b.id }})"
+                            {% if b.status == 'MAINTENANCE' or b.current_load <= 0 %}disabled{% endif %}
+                            class="flex-1 py-1.5 px-2 rounded-lg bg-hospital-600 hover:bg-hospital-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-colors text-center"
+                        >
+                            🔄 Transférer
+                        </button>
+
+                        <button
+                            type="button"
+                            onclick="editBin({{ b.id }}, '{{ b.code|escapejs }}', {{ b.warehouse_id }}, {{ b.capacity }}, {{ b.daily_rate }}, {{ b.monthly_rate }}, '{{ b.client_id|default:'' }}', '{{ b.status }}', '{{ b.zone_allee|default:''|escapejs }}', '{{ b.rack_niveau|default:''|escapejs }}')"
+                            class="py-1.5 px-2.5 rounded-lg border border-slate-300 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                            title="Modifier ce bac"
+                        >
+                            ✏️
+                        </button>
+
+                        <form method="post" action="{% url 'entrepot:bin_toggle_maintenance' b.id %}" class="inline">
+                            {% csrf_token %}
+                            <button
+                                type="submit"
+                                class="py-1.5 px-2 rounded-lg border text-xs font-bold transition-colors {% if b.status == 'MAINTENANCE' %}border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100{% else %}border-slate-300 text-slate-600 hover:bg-slate-200{% endif %}"
+                                title="{% if b.status == 'MAINTENANCE' %}Réactiver le bac{% else %}Mettre en maintenance (bloquer){% endif %}"
+                            >
+                                🛠️
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
+                    <div class="text-4xl mb-2">📦</div>
+                    <div class="text-sm font-bold text-slate-600">Aucun bac de rangement ne correspond à votre recherche.</div>
+                    <p class="text-xs text-slate-400 mt-1">Cliquez sur "+ Ajouter un Bac" pour initialiser vos emplacements de stockage.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+    </main>
+
+    <!-- =================================================================== -->
+    <!-- MODAL 1 : TRANSFERT RAPIDE ENTRE BACS (TRANSACTIONNEL)              -->
+    <!-- =================================================================== -->
+    <div id="transferModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden">
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">🔄</span>
+                    <h3 class="text-sm font-bold">Transfert de Stock Inter-Bacs (Transactionnel)</h3>
+                </div>
+                <button type="button" onclick="closeTransferModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            <form method="post" action="{% url 'entrepot:transfer_execute' %}" class="p-6 space-y-4 text-xs">
+                {% csrf_token %}
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">1. Bac Source *</label>
+                    <select id="transferSourceBin" name="source_bin_id" required onchange="onSourceBinChange()" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-hospital-600 focus:outline-none">
+                        <option value="">-- Sélectionner le bac de départ --</option>
+                        {% for b in bins %}
+                        {% if b.status != 'MAINTENANCE' and b.current_load > 0 %}
+                        <option value="{{ b.id }}">
+                            {{ b.code }} ({{ b.warehouse.name }}) &bull; Charge: {{ b.current_load|floatformat:0 }}/{{ b.capacity|floatformat:0 }}
+                        </option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">2. Produit à transférer *</label>
+                        <select id="transferProduct" name="product_id" required onchange="onProductChange()" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-hospital-600 focus:outline-none">
+                            <option value="">-- Choisissez un bac source d'abord --</option>
+                        </select>
+                        <p id="transferMaxQtyText" class="text-[11px] text-slate-500 mt-1 font-medium"></p>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">3. Quantité *</label>
+                        <input
+                            type="number"
+                            id="transferQty"
+                            name="quantity"
+                            min="1"
+                            value="1"
+                            required
+                            oninput="updateEligibleDestinations()"
+                            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-black text-slate-900 focus:border-hospital-600 focus:outline-none"
+                        >
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">4. Bac de Destination (Espace disponible suffisant) *</label>
+                    <select id="transferDestBin" name="destination_bin_id" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-hospital-600 focus:outline-none">
+                        <option value="">-- Sélectionnez un produit et une quantité --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">5. Motif du transfert (Traçabilité HDS)</label>
+                    <input
+                        type="text"
+                        name="reason"
+                        placeholder="Ex: Réapprovisionnement zone picking, optimisation espace..."
+                        class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-hospital-600 focus:outline-none"
+                    >
+                </div>
+
+                <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                    <button type="button" onclick="closeTransferModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50">
+                        Annuler
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-hospital-600 hover:bg-hospital-700 text-white font-extrabold shadow-xs transition-colors">
+                        Valider le Transfert
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- MODAL 2 : CRÉATION / MODIFICATION D'UN BAC DE RANGEMENT             -->
+    <!-- =================================================================== -->
+    <div id="binModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden">
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <h3 id="binModalTitle" class="text-sm font-bold">+ Nouveau Bac de Rangement</h3>
+                <button type="button" onclick="closeBinModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            <form method="post" action="{% url 'entrepot:bin_save' %}" class="p-6 space-y-4 text-xs">
+                {% csrf_token %}
+                <input type="hidden" id="modalBinId" name="bin_id" value="">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Code du Bac *</label>
+                        <input type="text" id="modalBinCode" name="code" required placeholder="ex: A-01-B2" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-bold text-slate-900 uppercase">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Entrepôt *</label>
+                        <select id="modalBinWarehouse" name="warehouse_id" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-800">
+                            {% for wh in warehouses %}
+                            <option value="{{ wh.id }}">{{ wh.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Capacité Max *</label>
+                        <input type="number" id="modalBinCapacity" name="capacity" min="1" step="0.5" required value="100" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-bold text-slate-900">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Tarif Jour (DA)</label>
+                        <input type="number" id="modalBinDailyRate" name="daily_rate" min="0" step="10" value="0" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-bold text-slate-900">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Tarif Mois (DA)</label>
+                        <input type="number" id="modalBinMonthlyRate" name="monthly_rate" min="0" step="100" value="0" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-bold text-slate-900">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Client Locataire (Optionnel)</label>
+                        <select id="modalBinClient" name="client_id" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
+                            <option value="">-- Aucun (Stock interne) --</option>
+                            {% for cl in clients %}
+                            <option value="{{ cl.id }}">{{ cl.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Statut Initial</label>
+                        <select id="modalBinStatus" name="status" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-bold text-slate-800">
+                            {% for code, label in statuses %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Allée / Zone</label>
+                        <input type="text" id="modalBinAllee" name="zone_allee" placeholder="ex: Allée A, Rayon 3" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-800">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Rack / Niveau</label>
+                        <input type="text" id="modalBinRack" name="rack_niveau" placeholder="ex: Étage 2, Alvéole 4" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-800">
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                    <button type="button" onclick="closeBinModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50">
+                        Annuler
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold shadow-xs transition-colors">
+                        Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Gestion de la modal de transfert
+        function openTransferModal(preselectedBinId) {
+            document.getElementById('transferModal').classList.remove('hidden');
+            if (preselectedBinId) {
+                const sel = document.getElementById('transferSourceBin');
+                sel.value = preselectedBinId;
+                onSourceBinChange();
+            }
+        }
+
+        function closeTransferModal() {
+            document.getElementById('transferModal').classList.add('hidden');
+        }
+
+        async function onSourceBinChange() {
+            const binId = document.getElementById('transferSourceBin').value;
+            const productSel = document.getElementById('transferProduct');
+            const qtyText = document.getElementById('transferMaxQtyText');
+            productSel.innerHTML = '<option value="">Chargement des produits du bac...</option>';
+            qtyText.textContent = '';
+
+            if (!binId) {
+                productSel.innerHTML = '<option value="">-- Choisissez un bac source d\'abord --</option>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/entrepot/api/bins/${binId}/inventory/`);
+                const data = await res.json();
+                productSel.innerHTML = '<option value="">-- Sélectionner un produit --</option>';
+                if (data.products && data.products.length > 0) {
+                    data.products.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.textContent = `${p.name} (Dispo: ${p.quantity})`;
+                        opt.dataset.maxQty = p.quantity;
+                        productSel.appendChild(opt);
+                    });
+                } else {
+                    productSel.innerHTML = '<option value="">(Bac vide - aucun produit)</option>';
+                }
+            } catch (err) {
+                productSel.innerHTML = '<option value="">Erreur de chargement</option>';
+            }
+            updateEligibleDestinations();
+        }
+
+        function onProductChange() {
+            const productSel = document.getElementById('transferProduct');
+            const selectedOpt = productSel.options[productSel.selectedIndex];
+            const qtyInput = document.getElementById('transferQty');
+            const qtyText = document.getElementById('transferMaxQtyText');
+
+            if (selectedOpt && selectedOpt.dataset.maxQty) {
+                const max = parseInt(selectedOpt.dataset.maxQty);
+                qtyInput.max = max;
+                qtyInput.value = Math.min(parseInt(qtyInput.value) || 1, max);
+                qtyText.textContent = `Stock disponible dans ce bac : ${max} unité(s)`;
+            } else {
+                qtyText.textContent = '';
+            }
+            updateEligibleDestinations();
+        }
+
+        async function updateEligibleDestinations() {
+            const sourceBinId = document.getElementById('transferSourceBin').value;
+            const qty = document.getElementById('transferQty').value || 1;
+            const destSel = document.getElementById('transferDestBin');
+
+            destSel.innerHTML = '<option value="">Chargement des bacs éligibles...</option>';
+
+            try {
+                const res = await fetch(`/entrepot/api/bins/available/?min_capacity=${qty}&exclude_bin_id=${sourceBinId}`);
+                const data = await res.json();
+                destSel.innerHTML = '<option value="">-- Sélectionner le bac de destination --</option>';
+                if (data.bins && data.bins.length > 0) {
+                    data.bins.forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = b.id;
+                        opt.textContent = `${b.code} (${b.warehouse}) &bull; Place libre: ${b.available_capacity}`;
+                        destSel.appendChild(opt);
+                    });
+                } else {
+                    destSel.innerHTML = '<option value="">Aucun bac n\'a une capacité suffisante pour cette quantité</option>';
+                }
+            } catch (err) {
+                destSel.innerHTML = '<option value="">Erreur de chargement des bacs</option>';
+            }
+        }
+
+        // Gestion de la modal création / édition
+        function openBinModal() {
+            document.getElementById('binModalTitle').textContent = "+ Nouveau Bac de Rangement";
+            document.getElementById('modalBinId').value = "";
+            document.getElementById('modalBinCode').value = "";
+            document.getElementById('modalBinCapacity').value = "100";
+            document.getElementById('modalBinDailyRate').value = "0";
+            document.getElementById('modalBinMonthlyRate').value = "0";
+            document.getElementById('modalBinClient').value = "";
+            document.getElementById('modalBinStatus').value = "AVAILABLE";
+            document.getElementById('modalBinAllee').value = "";
+            document.getElementById('modalBinRack').value = "";
+            document.getElementById('binModal').classList.remove('hidden');
+        }
+
+        function editBin(id, code, warehouseId, capacity, dailyRate, monthlyRate, clientId, status, allee, rack) {
+            document.getElementById('binModalTitle').textContent = `✏️ Modifier le Bac ${code}`;
+            document.getElementById('modalBinId').value = id;
+            document.getElementById('modalBinCode').value = code;
+            document.getElementById('modalBinWarehouse').value = warehouseId;
+            document.getElementById('modalBinCapacity').value = capacity;
+            document.getElementById('modalBinDailyRate').value = dailyRate;
+            document.getElementById('modalBinMonthlyRate').value = monthlyRate;
+            document.getElementById('modalBinClient').value = clientId || "";
+            document.getElementById('modalBinStatus').value = status;
+            document.getElementById('modalBinAllee').value = allee || "";
+            document.getElementById('modalBinRack').value = rack || "";
+            document.getElementById('binModal').classList.remove('hidden');
+        }
+
+        function closeBinModal() {
+            document.getElementById('binModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
+

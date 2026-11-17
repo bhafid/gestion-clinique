@@ -10,6 +10,7 @@ from apps.pharmacie.views import (
     DispensationFEFOView,
     ExportMedicamentsExcelView,
     ImportMedicamentsExcelView,
+    LotAffecterBacView,
     PharmacieDashboardView,
     QuarantaineRappelLotView,
     ReceptionLivraisonCommandeView,
@@ -28,6 +29,8 @@ urlpatterns = [
     path("fefo-dispense/", DispensationFEFOView.as_view(), name="fefo_dispense"),
     # 2. Mise en quarantaine / Retrait rappel de lot / Perte péremption
     path("lot/<int:lot_id>/quarantine/", QuarantaineRappelLotView.as_view(), name="lot_quarantine"),
+    # 2b. Ranger / Déplacer un lot dans un bac d'entrepôt WMS
+    path("lot/<int:lot_id>/assign-bin/", LotAffecterBacView.as_view(), name="lot_assign_bin"),
     # 3. Création de Bon de Commande depuis les suggestions (Stock Max - Stock Actuel)
     path("orders/create/", CreerCommandeDepuisSuggestionsView.as_view(), name="order_create"),
     # 4. Réception de livraison (N° lot + Date péremption obligatoires + Calcul PMP)

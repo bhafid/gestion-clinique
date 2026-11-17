@@ -15,6 +15,7 @@ from django.views.static import serve
 
 from apps.core.views import (
     ClinicSettingsView,
+    DatabaseBackupRestoreView,
     HospitalLoginView,
     WeeklyDashboardView,
     hospital_logout_view,
@@ -60,6 +61,7 @@ urlpatterns = [
     # Tableau de bord hebdomadaire (Accueil protégé) & Paramètres de la Clinique
     path("", WeeklyDashboardView.as_view(), name="home_dashboard"),
     path("clinic-settings/", ClinicSettingsView.as_view(), name="clinic_settings_root"),
+    path("database/", DatabaseBackupRestoreView.as_view(), name="database_root"),
     
     # Interface d'Administration Sécurisée
     path("admin/", admin.site.urls),
@@ -72,6 +74,7 @@ urlpatterns = [
     path("urologie/", include("apps.urologie.urls", namespace="urologie")),
     path("pharmacie/", include("apps.pharmacie.urls", namespace="pharmacie")),
     path("facturation/", include("apps.facturation.urls", namespace="facturation")),
+    path("entrepot/", include("apps.entrepot.urls", namespace="entrepot")),
 
     # Service direct des fichiers statiques (Logo, CSS/JS Admin) même via Gunicorn (:8000)
     re_path(r"^static/(?P<path>.*)$", serve_static_with_fallback),

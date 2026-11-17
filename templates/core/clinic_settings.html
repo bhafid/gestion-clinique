@@ -307,6 +307,83 @@
             </div>
         </div>
 
+        {% if is_db_admin %}
+        <!-- Section Sauvegarde & Restauration Complète de la Base de Données -->
+        <section class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-900 text-white uppercase tracking-wider">
+                            Administration Système ({{ db_engine|upper }})
+                        </span>
+                        <h2 class="text-base font-extrabold text-slate-900">
+                            💾 Sauvegarde &amp; Restauration Complète de la Base de Données
+                        </h2>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Téléchargez une copie complète de toute la base de données (patients, hospitalisations, pharmacie, facturation, utilisateurs) ou restaurez une sauvegarde existante. Une copie de sécurité pré-restauration est créée automatiquement dans <code>backups/</code>.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <!-- Sauvegarde (Backup) -->
+                <div class="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-3">
+                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-emerald-900">
+                        1. Télécharger une Sauvegarde (Backup)
+                    </h3>
+                    <p class="text-xs text-emerald-800">
+                        Exporte l'intégralité de la base de données sans interrompre le fonctionnement du serveur.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2.5 pt-1">
+                        {% if db_engine == "sqlite" %}
+                        <a href="{% url 'core:database_backup' %}?format=sqlite" class="inline-flex items-center px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs transition-colors">
+                            💾 Sauvegarde Complète (.sqlite3)
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'core:database_backup' %}?format=json" class="inline-flex items-center px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 text-xs font-bold shadow-2xs transition-colors">
+                            📄 Sauvegarde Universelle (.json)
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Restauration (Restore) -->
+                <div class="p-4 rounded-xl bg-amber-50/70 border border-amber-300 space-y-3">
+                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-amber-900">
+                        2. Restaurer la Base de Données (Restore)
+                    </h3>
+                    <form
+                        method="post"
+                        action="{% url 'core:database_restore' %}"
+                        enctype="multipart/form-data"
+                        onsubmit="return confirm('Attention : la restauration va remplacer ou mettre à jour les données actuelles de la base. Continuer ?');"
+                        class="space-y-3 text-xs"
+                    >
+                        {% csrf_token %}
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input
+                                type="file"
+                                name="backup_file"
+                                accept=".sqlite3,.db,.sqlite,.json"
+                                required
+                                class="text-xs text-slate-700 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-100 file:text-amber-900 hover:file:bg-amber-200 cursor-pointer"
+                            >
+                        </div>
+                        <label class="flex items-center gap-2 text-xs text-amber-900 font-semibold">
+                            <input type="checkbox" name="flush_before_restore" value="1" class="rounded border-amber-400">
+                            Vider la base avant import (uniquement pour les fichiers <code>.json</code>)
+                        </label>
+                        <div>
+                            <button type="submit" class="inline-flex items-center px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold shadow-xs transition-colors">
+                                ♻️ Restaurer la Base de Données
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
     </main>
 
     <!-- Pied de page avec les coordonnées officielles -->

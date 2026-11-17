@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "apps.urologie.apps.UrologieConfig",
     "apps.pharmacie.apps.PharmacieConfig",
     "apps.facturation.apps.FacturationConfig",
+    "apps.entrepot.apps.EntrepotConfig",
 ]
 
 MIDDLEWARE = [
@@ -161,6 +162,10 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Media files (Uploads, Attachments, Logos)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

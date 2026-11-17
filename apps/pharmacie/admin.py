@@ -21,6 +21,7 @@ class LotStockInline(admin.TabularInline):
         "numero_lot",
         "date_peremption",
         "quantite_disponible",
+        "storage_bin",
         "emplacement_physique",
         "statut",
         "motif_quarantaine_rappel",

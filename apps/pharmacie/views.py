@@ -84,7 +84,10 @@ class PharmacieDashboardView(LoginRequiredMixin, TemplateView):
 
         tous_produits = list(
             ProduitPharmaceutique.objects.select_related("fournisseur_prefere")
-            .prefetch_related("lots")
+            .prefetch_related(
+                "lots__storage_bin__warehouse",
+                "bin_locations__bin__warehouse",
+            )
             .all()
         )
 
@@ -117,6 +120,18 @@ class PharmacieDashboardView(LoginRequiredMixin, TemplateView):
             for c in commandes
             if c.statut in (StatutCommandeChoices.ENVOYEE, StatutCommandeChoices.PARTIELLEMENT_RECUE)
         ]
+
+        # Bacs d'entrepôt WMS disponibles pour le rangement lors de la réception
+        bacs_disponibles = []
+        try:
+            from apps.entrepot.models import StorageBin, StorageBinStatus
+            bacs_disponibles = list(
+                StorageBin.objects.select_related("warehouse")
+                .exclude(status=StorageBinStatus.MAINTENANCE)
+                .order_by("warehouse__name", "code")
+            )
+        except Exception:
+            pass
 
         # Filtrage du catalogue affiché
         produits_filtres: List[ProduitPharmaceutique] = []
@@ -184,6 +199,7 @@ class PharmacieDashboardView(LoginRequiredMixin, TemplateView):
                 "total_suggestions_ht": total_suggestions_ht,
                 "commandes": commandes,
                 "commandes_en_attente": commandes_en_attente,
+                "bacs_disponibles": bacs_disponibles,
                 "mouvements_audit": mouvements_audit,
                 "default_expiry_date": (timezone.localdate() + timezone.timedelta(days=365)).isoformat(),
             }
@@ -277,6 +293,92 @@ class QuarantaineRappelLotView(LoginRequiredMixin, View):
         return redirect("/pharmacie/?tab=catalogue")
 
 
+class LotAffecterBacView(LoginRequiredMixin, View):
+    """
+    POST /pharmacie/lot/<int:lot_id>/assign-bin/
+    Affecte ou déplace rapidement un lot pharmaceutique dans un bac d'entrepôt (WMS)
+    depuis la vue Catalogue de la Pharmacie, avec synchronisation de BinInventory.
+    """
+
+    def post(self, request: HttpRequest, lot_id: int) -> HttpResponse:
+        from apps.entrepot.models import StorageBin, BinInventory, StorageBinStatus
+        lot = get_object_or_404(LotStock.objects.select_related("produit", "storage_bin"), pk=lot_id)
+        bin_id = request.POST.get("storage_bin_id", "").strip()
+
+        try:
+            ancien_bin = lot.storage_bin
+
+            # 1. Cas : Retrait du bac (remise en stockage direct libre)
+            if not bin_id:
+                if ancien_bin:
+                    bin_inv = BinInventory.objects.filter(bin=ancien_bin, product=lot.produit).first()
+                    if bin_inv:
+                        bin_inv.quantity = max(0, bin_inv.quantity - lot.quantite_disponible)
+                        if bin_inv.quantity == 0:
+                            bin_inv.delete()
+                        else:
+                            bin_inv.save()
+                    ancien_bin.update_load_and_status(save=True)
+
+                lot.storage_bin = None
+                lot.emplacement_physique = lot.produit.rayon_par_defaut
+                lot.save(update_fields=["storage_bin", "emplacement_physique", "updated_at"])
+                messages.success(request, f"Le lot {lot.numero_lot} a été retiré de son bac et replacé en stockage libre.")
+                return redirect("/pharmacie/?tab=catalogue")
+
+            # 2. Cas : Affectation à un bac WMS
+            nouveau_bin = get_object_or_404(StorageBin, pk=int(bin_id))
+            if nouveau_bin.status == StorageBinStatus.MAINTENANCE:
+                raise ValidationError(f"Le bac {nouveau_bin.code} est actuellement en maintenance.")
+
+            # Capacité disponible requise (en tenant compte de l'éventuelle présence déjà dans ce même bac)
+            qte_requise = Decimal(str(lot.quantite_disponible))
+            if ancien_bin and ancien_bin.id == nouveau_bin.id:
+                pass  # Déjà dans ce bac
+            else:
+                if nouveau_bin.available_capacity < qte_requise:
+                    raise ValidationError(
+                        f"Capacité insuffisante dans le bac {nouveau_bin.code} "
+                        f"(Disponible: {nouveau_bin.available_capacity}, Requis: {qte_requise})."
+                    )
+
+                # Décrémenter l'ancien bac si différent
+                if ancien_bin:
+                    bin_inv_old = BinInventory.objects.filter(bin=ancien_bin, product=lot.produit).first()
+                    if bin_inv_old:
+                        bin_inv_old.quantity = max(0, bin_inv_old.quantity - lot.quantite_disponible)
+                        if bin_inv_old.quantity == 0:
+                            bin_inv_old.delete()
+                        else:
+                            bin_inv_old.save()
+                    ancien_bin.update_load_and_status(save=True)
+
+                # Incrémenter le nouveau bac
+                bin_inv_new, _ = BinInventory.objects.get_or_create(
+                    bin=nouveau_bin,
+                    product=lot.produit,
+                    defaults={"quantity": 0},
+                )
+                bin_inv_new.quantity += lot.quantite_disponible
+                bin_inv_new.save()
+                nouveau_bin.update_load_and_status(save=True)
+
+            lot.storage_bin = nouveau_bin
+            lot.emplacement_physique = f"Bac {nouveau_bin.code} ({nouveau_bin.warehouse.name})"
+            lot.save(update_fields=["storage_bin", "emplacement_physique", "updated_at"])
+
+            messages.success(
+                request,
+                f"Lot {lot.numero_lot} ({lot.produit.nom_commercial} x{lot.quantite_disponible}) "
+                f"rangé avec succès dans le bac {nouveau_bin.code} ({nouveau_bin.warehouse.name}).",
+            )
+        except (ValidationError, ValueError) as exc:
+            msg = exc.message if isinstance(exc, ValidationError) and hasattr(exc, "message") else str(exc)
+            messages.error(request, f"Impossible de ranger le lot : {msg}")
+
+        return redirect("/pharmacie/?tab=catalogue")
+
+
 class CreerCommandeDepuisSuggestionsView(LoginRequiredMixin, View):
     """
     POST /pharmacie/orders/create/
@@ -336,6 +438,7 @@ class ReceptionLivraisonCommandeView(LoginRequiredMixin, View):
                 numero_lot = request.POST.get(f"lot_{ligne.id}", "").strip()
                 date_peremption = request.POST.get(f"peremption_{ligne.id}", "").strip()
                 emplacement = request.POST.get(f"emplacement_{ligne.id}", "").strip()
+                storage_bin_id = request.POST.get(f"storage_bin_{ligne.id}", "").strip()
                 receptions.append(
                     {
                         "ligne_id": ligne.id,
@@ -343,6 +446,7 @@ class ReceptionLivraisonCommandeView(LoginRequiredMixin, View):
                         "numero_lot": numero_lot,
                         "date_peremption": date_peremption,
                         "emplacement_physique": emplacement,
+                        "storage_bin_id": storage_bin_id if storage_bin_id.isdigit() else None,
                     }
                 )
 
@@ -501,6 +605,7 @@ class ExportMedicamentsExcelView(LoginRequiredMixin, View):
             "Numero_Lot_Initial",
             "Date_Peremption_Lot",
             "Rayon_Emplacement",
+            "Entrepots_Et_Bacs_WMS",
             "Fournisseur",
         ]
 
@@ -526,17 +631,19 @@ class ExportMedicamentsExcelView(LoginRequiredMixin, View):
                     "LOT-PERF-2027",
                     (timezone.localdate() + timezone.timedelta(days=365)).strftime("%Y-%m-%d"),
                     "Armoire Pharmacie Centrale - A1",
+                    "Pharmacie Centrale [BAC-PHARM-01]",
                     "SAIDAL / BIOPHARM",
                 ]
             )
         else:
             produits = (
                 ProduitPharmaceutique.objects.select_related("fournisseur_prefere")
-                .prefetch_related("lots")
+                .prefetch_related("lots__storage_bin__warehouse", "bin_locations__bin__warehouse")
                 .all()
             )
             for p in produits:
                 premier_lot = p.lots.filter(quantite_disponible__gt=0).order_by("date_peremption").first()
+                bacs_str = ", ".join(f"{loc['warehouse_name']} [{loc['bin_code']}]" for loc in p.entrepots_et_bacs)
                 rows.append(
                     [
                         p.code_cip_ean13,
@@ -557,6 +664,7 @@ class ExportMedicamentsExcelView(LoginRequiredMixin, View):
                         premier_lot.numero_lot if premier_lot else "",
                         premier_lot.date_peremption.strftime("%Y-%m-%d") if premier_lot else "",
                         p.rayon_par_defaut,
+                        bacs_str,
                         p.fournisseur_prefere.nom if p.fournisseur_prefere else "",
                     ]
                 )

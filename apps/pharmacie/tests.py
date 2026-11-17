@@ -410,5 +410,134 @@ class PharmacieStockAchatsTests(TestCase):
         )
         self.assertEqual(resp_post.status_code, 302)
 
+    def test_reception_commande_avec_rangement_bac_wms(self) -> None:
+        """
+        Vérifie l'intégration de la Pharmacie dans la gestion d'entrepôt :
+        - Lors de la réception de livraison d'un produit commandé, l'opérateur peut désigner un bac de rangement WMS.
+        - Le bac est mis à jour : charge incrémentée, statut mis à jour et inventaire de bac créé.
+        """
+        from apps.entrepot.models import Warehouse, StorageBin, BinInventory, StorageBinStatus
+
+        wh = Warehouse.objects.create(name="Pharmacie Centrale - Réserve", code="PH-RES-01")
+        bin_wms = StorageBin.objects.create(
+            code="BAC-PHARM-01",
+            warehouse=wh,
+            capacity=Decimal("200.00"),
+            status=StorageBinStatus.AVAILABLE,
+        )
+
+        fournisseur = Fournisseur.objects.create(nom="Fournisseur Test WMS")
+        produit = ProduitPharmaceutique.objects.create(
+            code_cip_ean13="9998887776665",
+            nom_commercial="Sérum Salé Isotonique",
+            dci="Chlorure de Sodium",
+            dosage="0.9% 500ml",
+            forme_galenique="Poche perfusion",
+            fournisseur_prefere=fournisseur,
+            prix_achat_ht=Decimal("2.50"),
+        )
+
+        commande = CommandeAchat.objects.create(
+            fournisseur=fournisseur,
+            cree_par=self.user,
+            statut=StatutCommandeChoices.ENVOYEE,
+        )
+        ligne = LigneCommandeAchat.objects.create(
+            commande=commande,
+            produit=produit,
+            quantite_commandee=50,
+            quantite_recue=0,
+            prix_unitaire_achat_negocie=Decimal("2.50"),
+        )
+
+        # Réception via service avec rangement dans bin_wms
+        receptions = [
+            {
+                "ligne_id": ligne.id,
+                "quantite_recue": 50,
+                "numero_lot": "LOT-SERUM-2026",
+                "date_peremption": (timezone.localdate() + timedelta(days=500)).isoformat(),
+                "emplacement_physique": "Rayon Perfusion",
+                "storage_bin_id": bin_wms.id,
+            }
+        ]
+        cmd_maj = receptionner_livraison_commande(commande.id, receptions, self.user)
+        self.assertEqual(cmd_maj.statut, StatutCommandeChoices.RECUE)
+
+        # Vérifier que le bac WMS a bien reçu les 50 unités
+        bin_wms.refresh_from_db()
+        self.assertEqual(bin_wms.current_load, Decimal("50.00"))
+        self.assertEqual(bin_wms.status, StorageBinStatus.OCCUPIED)
+
+        bin_inv = BinInventory.objects.get(bin=bin_wms, product=produit)
+        self.assertEqual(bin_inv.quantity, 50)
+
+        # Vérifier que le lot pharmaceutique pointe directement sur le bac
+        lot_cree = LotStock.objects.get(produit=produit, numero_lot="LOT-SERUM-2026")
+        self.assertEqual(lot_cree.storage_bin, bin_wms)
+        self.assertIn("BAC-PHARM-01", lot_cree.emplacement_physique)
+
+    def test_vue_affecter_lot_dans_bac_wms(self) -> None:
+        """
+        Vérifie le fonctionnement de la modale rapide /pharmacie/lot/<id>/assign-bin/ :
+        - Déplacement d'un lot existant vers un bac WMS
+        - Mise à jour de BinInventory et de la charge du bac
+        - Retrait du bac
+        """
+        from apps.entrepot.models import Warehouse, StorageBin, BinInventory, StorageBinStatus
+
+        wh = Warehouse.objects.create(name="Pharmacie Centrale 2", code="PH-RES-02")
+        bin_dest = StorageBin.objects.create(
+            code="BAC-FAST-01",
+            warehouse=wh,
+            capacity=Decimal("100.00"),
+            status=StorageBinStatus.AVAILABLE,
+        )
+
+        prod = ProduitPharmaceutique.objects.create(
+            code_cip_ean13="1112223334445",
+            nom_commercial="Paracétamol Sirop",
+            dci="Paracétamol",
+            dosage="2.4%",
+            forme_galenique="Flacon",
+            prix_achat_ht=Decimal("5.00"),
+        )
+        lot = LotStock.objects.create(
+            produit=prod,
+            numero_lot="LOT-SIR-01",
+            date_peremption=timezone.localdate() + timedelta(days=200),
+            quantite_disponible=30,
+            emplacement_physique="Rayon Sirop",
+        )
+
+        self.client.force_login(self.user)
+        # 1. Affecter au bac BAC-FAST-01
+        resp_post = self.client.post(
+            f"/pharmacie/lot/{lot.id}/assign-bin/",
+            {"storage_bin_id": bin_dest.id},
+        )
+        self.assertEqual(resp_post.status_code, 302)
+
+        lot.refresh_from_db()
+        bin_dest.refresh_from_db()
+        self.assertEqual(lot.storage_bin, bin_dest)
+        self.assertEqual(bin_dest.current_load, Decimal("30.00"))
+        self.assertEqual(bin_dest.status, StorageBinStatus.OCCUPIED)
+
+        bin_inv = BinInventory.objects.get(bin=bin_dest, product=prod)
+        self.assertEqual(bin_inv.quantity, 30)
+
+        # 2. Retirer du bac
+        resp_retrait = self.client.post(
+            f"/pharmacie/lot/{lot.id}/assign-bin/",
+            {"storage_bin_id": ""},
+        )
+        self.assertEqual(resp_retrait.status_code, 302)
+        lot.refresh_from_db()
+        bin_dest.refresh_from_db()
+        self.assertIsNone(lot.storage_bin)
+        self.assertEqual(bin_dest.current_load, Decimal("0.00"))
+        self.assertEqual(bin_dest.status, StorageBinStatus.AVAILABLE)
+
 
 

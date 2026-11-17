@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historique des Transferts Inter-Bacs (WMS) | Clinique Sidi Yahia 2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-full flex flex-col text-slate-800 antialiased">
+
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <a href="{% url 'entrepot:dashboard' %}" class="w-12 h-14 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0">
+                    <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique" class="h-full w-auto object-contain">
+                </a>
+                <div>
+                    <h1 class="text-lg font-extrabold text-slate-900">
+                        📋 Historique &amp; Traçabilité des Transferts Inter-Bacs
+                    </h1>
+                    <p class="text-xs text-slate-500">
+                        Journal immuable des mouvements de stock entre alvéoles et entrepôts
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'entrepot:dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors">
+                    &larr; Vue d'ensemble Entrepôt
+                </a>
+                <a href="{% url 'entrepot:billing_dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition-colors">
+                    💰 Facturation Bacs
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Filtres Avancés -->
+        <section class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <form method="get" class="flex flex-wrap items-center gap-3 text-xs">
+                <div class="flex-1 min-w-[220px]">
+                    <label class="block font-bold text-slate-700 mb-1">Recherche globale</label>
+                    <input
+                        type="text"
+                        name="q"
+                        value="{{ search_query }}"
+                        placeholder="Référence, code bac, produit, motif ou opérateur..."
+                        class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-semibold text-slate-800 focus:bg-white focus:border-hospital-600 focus:outline-none"
+                    >
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Du (Date)</label>
+                    <input type="date" name="date_from" value="{{ date_from }}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-800">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Au (Date)</label>
+                    <input type="date" name="date_to" value="{{ date_to }}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-800">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Bac Source</label>
+                    <select name="source_bin_id" class="rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-700">
+                        <option value="">Tous</option>
+                        {% for b in bins %}
+                        <option value="{{ b.id }}" {% if selected_source_bin_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.code }} ({{ b.warehouse.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Bac Destination</label>
+                    <select name="destination_bin_id" class="rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-700">
+                        <option value="">Tous</option>
+                        {% for b in bins %}
+                        <option value="{{ b.id }}" {% if selected_dest_bin_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.code }} ({{ b.warehouse.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex items-end gap-2 pt-4">
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-hospital-700 text-white font-bold transition-colors">
+                        Filtrer
+                    </button>
+                    {% if search_query or date_from or date_to or selected_source_bin_id or selected_dest_bin_id %}
+                    <a href="{% url 'entrepot:transfer_list' %}" class="px-3 py-2 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 font-bold">
+                        Réinitialiser
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </section>
+
+        <!-- Tableau des Transferts -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                <h2 class="text-xs font-black uppercase tracking-wider text-slate-900">
+                    Mouvements de Stock Enregistrés ({{ page_obj.paginator.count }} au total)
+                </h2>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-xs">
+                    <thead class="bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                        <tr>
+                            <th class="py-3 px-4 text-left">Réf. Transfert</th>
+                            <th class="py-3 px-4 text-left">Date &amp; Heure</th>
+                            <th class="py-3 px-4 text-left">Produit Transféré</th>
+                            <th class="py-3 px-4 text-right">Quantité</th>
+                            <th class="py-3 px-4 text-left">Bac Source</th>
+                            <th class="py-3 px-4 text-left">Bac Destination</th>
+                            <th class="py-3 px-4 text-left">Opérateur</th>
+                            <th class="py-3 px-4 text-left">Motif</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for trf in transfers %}
+                        <tr class="hover:bg-slate-50/70 transition-colors">
+                            <td class="py-3 px-4 font-mono font-bold text-hospital-700">{{ trf.reference }}</td>
+                            <td class="py-3 px-4 text-slate-600 whitespace-nowrap">{{ trf.created_at|date:"d/m/Y H:i" }}</td>
+                            <td class="py-3 px-4 font-bold text-slate-900">
+                                {{ trf.product.nom_commercial }}
+                                <span class="text-[11px] text-slate-400 font-normal">({{ trf.product.dosage }})</span>
+                            </td>
+                            <td class="py-3 px-4 text-right font-black font-mono text-emerald-700 text-sm">
+                                x{{ trf.quantity }}
+                            </td>
+                            <td class="py-3 px-4">
+                                <span class="px-2 py-0.5 rounded-lg font-mono font-bold text-slate-800 bg-slate-100 border border-slate-200">
+                                    {{ trf.source_bin.code }}
+                                </span>
+                                <span class="text-[11px] text-slate-400 block">{{ trf.source_bin.warehouse.name }}</span>
+                            </td>
+                            <td class="py-3 px-4">
+                                <span class="px-2 py-0.5 rounded-lg font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200">
+                                    {{ trf.destination_bin.code }}
+                                </span>
+                                <span class="text-[11px] text-slate-400 block">{{ trf.destination_bin.warehouse.name }}</span>
+                            </td>
+                            <td class="py-3 px-4 text-slate-700">
+                                {{ trf.transferred_by.get_full_name|default:trf.transferred_by.username }}
+                            </td>
+                            <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="{{ trf.reason }}">
+                                {{ trf.reason|default:"-" }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="py-10 text-center text-slate-400">
+                                Aucun transfert inter-bacs enregistré correspondant aux critères.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
+                <span class="text-slate-500">
+                    Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+                </span>
+                <div class="flex items-center gap-1.5">
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&q={{ search_query }}&date_from={{ date_from }}&date_to={{ date_to }}" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 font-bold">Précédent</a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&q={{ search_query }}&date_from={{ date_from }}&date_to={{ date_to }}" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 font-bold">Suivant</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </section>
+
+    </main>
+</body>
+</html>
+

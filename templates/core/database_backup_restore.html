@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sauvegardes &amp; Restauration BDD | SIH Clinique Sidi Yahia 2</title>
+    <!-- Tailwind CSS pour un rendu soigné et responsive sans débordement d'icônes -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; font-variant-numeric: tabular-nums; }
+        svg { max-width: 100%; max-height: 100%; }
+    </style>
+</head>
+<body class="min-h-full flex flex-col text-slate-800 antialiased selection:bg-indigo-600 selection:text-white">
+
+    <!-- En-tête Navigation Supérieure -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+                <div class="flex items-center gap-3.5 min-w-0">
+                    <a href="{% url 'home_dashboard' %}" class="w-12 h-14 sm:w-14 sm:h-16 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0 hover:border-indigo-500 transition">
+                        <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique" class="h-full w-auto object-contain">
+                    </a>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
+                                💾 Sauvegardes &amp; Restauration
+                            </h1>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                Administration Système
+                            </span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                Conformité HDS / RGPD
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Moteur actif : <strong class="text-slate-700 font-semibold">{{ engine_name|default:db_engine|upper }}</strong> &bull; Emplacement : <code class="text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono">{{ db_path|default:db_name }}</code>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 flex-wrap">
+                    <a href="{% url 'home_dashboard' %}" class="inline-flex items-center px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 shadow-xs transition">
+                        &larr; Cockpit
+                    </a>
+                    <a href="/admin/" class="inline-flex items-center px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 shadow-xs transition">
+                        Portail DPI
+                    </a>
+                    <a href="{% url 'logout' %}" class="inline-flex items-center px-3 py-1.5 border border-rose-200 text-xs font-semibold rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 transition">
+                        Déconnexion
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenu Principal -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Messages Flash & Alertes -->
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between {% if message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% elif message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-800{% else %}bg-sky-50 border-sky-200 text-sky-800{% endif %}">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full {% if message.tags == 'error' %}bg-rose-500{% elif message.tags == 'success' %}bg-emerald-500{% else %}bg-sky-500{% endif %}"></span>
+                    <span>{{ message }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Grille 2 Colonnes : Création Backup & Restauration -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Colonne 1 : Création de Sauvegarde (Full Backup) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="text-base font-bold text-slate-900">1. Créer une Sauvegarde (Full Backup)</h2>
+                                <p class="text-xs text-slate-500">Exportez immédiatement vos données hospitalières en toute sécurité</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 space-y-4">
+                        <!-- Option 1 : Full Archive ZIP (Recommandé) -->
+                        <div class="p-4 rounded-xl border-2 border-indigo-500/30 bg-indigo-50/40 relative">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 text-white uppercase tracking-wider">
+                                    Format Recommandé
+                                </span>
+                                <span class="text-xs font-semibold text-indigo-700">Complet</span>
+                            </div>
+                            <h3 class="text-sm font-bold text-slate-900 mt-2 flex items-center gap-2">
+                                <span>📦</span> Archive ZIP Globale (BDD + Médias + Manifeste)
+                            </h3>
+                            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+                                Regroupe la base de données entière, les pièces jointes des patients (ordonnances, radios, consentements) et le manifeste d'intégrité horodaté.
+                            </p>
+                            <div class="mt-3">
+                                <a href="{% url 'core:database_backup' %}?format=zip" class="inline-flex items-center justify-center w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition">
+                                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                    Télécharger le Full Backup ZIP (.zip)
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Option 2 : Fichier Natif SQLite -->
+                        {% if is_sqlite %}
+                        <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/70 transition flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                    <span>💾</span> Base Native SQLite (.sqlite3)
+                                </h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5">
+                                    Copie transactionnelle live à chaud sans interruption de service.
+                                </p>
+                            </div>
+                            <a href="{% url 'core:database_backup' %}?format=sqlite" class="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg shadow-xs shrink-0 transition">
+                                Exporter (.sqlite3)
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        <!-- Option 3 : Export Universel JSON -->
+                        <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/70 transition flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                    <span>📄</span> Export Sérialisé Universel (.json)
+                                </h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5">
+                                    Dump structuré compatible SQLite, PostgreSQL et migrations.
+                                </p>
+                            </div>
+                            <a href="{% url 'core:database_backup' %}?format=json" class="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg shadow-xs shrink-0 transition">
+                                Exporter (.json)
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <span class="text-emerald-500 font-bold">✓</span>
+                    Chaque téléchargement est audité et consigné dans le journal HDS.
+                </div>
+            </div>
+
+            <!-- Colonne 2 : Restauration de la Base de Données -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="text-base font-bold text-slate-900">2. Restaurer la Base de Données</h2>
+                                <p class="text-xs text-slate-500">Restauration depuis un fichier d'archive ou un export</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sécurité Snapshot automatique -->
+                    <div class="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                        <div class="font-bold flex items-center gap-1">
+                            <span>🛡️</span> Sécurité Automatique Garantie :
+                        </div>
+                        <p class="mt-0.5 text-[11px] leading-relaxed text-amber-800">
+                            Un <strong>instantané de sécurité pré-restauration</strong> est automatiquement sauvegardé dans <code class="bg-amber-100/80 px-1 py-0.5 rounded text-amber-900 font-mono">backups/</code> avant toute modification des tables.
+                        </p>
+                    </div>
+
+                    <!-- Formulaire Upload Restauration -->
+                    <form method="post" action="{% url 'core:database_restore' %}" enctype="multipart/form-data" class="mt-4 space-y-3.5" onsubmit="return confirm('ATTENTION : La restauration remplacera les données de la base par le contenu du fichier sélectionné. Un snapshot de sécurité automatique sera d\'abord créé. Souhaitez-vous continuer ?');">
+                        {% csrf_token %}
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Fichier à restaurer (.zip, .sqlite3, .db, .json)
+                            </label>
+                            <div class="p-3 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/70 hover:border-indigo-400 transition text-center">
+                                <label for="backup_file" class="cursor-pointer block">
+                                    <div class="text-2xl mb-1">📁</div>
+                                    <span class="text-xs font-bold text-indigo-600 hover:text-indigo-700">Cliquez pour choisir un fichier</span>
+                                    <input id="backup_file" name="backup_file" type="file" required accept=".zip,.sqlite3,.db,.json" class="sr-only" onchange="document.getElementById('file_chosen_label').innerText = this.files[0] ? 'Fichier sélectionné : ' + this.files[0].name : '';">
+                                    <p class="text-[11px] text-slate-400 mt-1">Formats acceptés : ZIP (Full), SQLITE3, DB ou JSON</p>
+                                    <p id="file_chosen_label" class="text-xs font-bold text-slate-800 mt-1.5 text-indigo-700"></p>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-1">
+                            <input type="checkbox" id="flush_before_restore" name="flush_before_restore" value="1" class="h-4 w-4 text-rose-600 focus:ring-rose-500 border-slate-300 rounded">
+                            <label for="flush_before_restore" class="text-xs text-slate-600 cursor-pointer">
+                                Réinitialiser les tables avant réimportation (Recommandé pour format JSON)
+                            </label>
+                        </div>
+
+                        <div class="pt-2">
+                            <button type="submit" class="w-full inline-flex justify-center items-center px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                Lancer la Restauration Complète
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="mt-6 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <span class="text-rose-500 font-bold">⚠️</span>
+                    Action protégée par habilitation Administrateur.
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Section 3 : Historique & Points de Restauration Locaux (backups/) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <span>🗄️</span> Points de Restauration &amp; Sauvegardes Locales
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Dossier local sécurisé : <code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono">{{ backup_dir }}</code>
+                    </p>
+                </div>
+                <div class="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl self-start sm:self-auto">
+                    Total sauvegardes locales : <span class="text-indigo-700 font-bold">{{ local_backups|length }}</span>
+                </div>
+            </div>
+
+            {% if local_backups %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-600 uppercase tracking-wider">Fichier &amp; Format</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-600 uppercase tracking-wider">Taille</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-600 uppercase tracking-wider">Date &amp; Heure</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-600 uppercase tracking-wider">Type / Nature</th>
+                            <th class="px-5 py-3 text-right text-xs font-bold text-slate-600 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for item in local_backups %}
+                        <tr class="hover:bg-slate-50/70 transition">
+                            <td class="px-5 py-3.5 whitespace-nowrap">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="text-lg">
+                                        {% if item.extension == '.zip' %}📦{% elif item.extension == '.sqlite3' or item.extension == '.db' %}💾{% else %}📄{% endif %}
+                                    </span>
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-900 font-mono">{{ item.filename }}</div>
+                                        <div class="text-[10px] text-slate-400">Extension {{ item.extension }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-5 py-3.5 whitespace-nowrap text-xs text-slate-700 font-semibold">
+                                {{ item.size_str }}
+                            </td>
+                            <td class="px-5 py-3.5 whitespace-nowrap text-xs text-slate-500 font-medium">
+                                {{ item.modified_at|date:"d/m/Y H:i:s" }}
+                            </td>
+                            <td class="px-5 py-3.5 whitespace-nowrap">
+                                {% if item.is_safety %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                    🛡️ Sécurité Pré-Restore
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700">
+                                    Sauvegarde Standard
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-3.5 whitespace-nowrap text-right space-x-1.5">
+                                <!-- Télécharger -->
+                                <a href="{% url 'core:database_download_local' %}?filename={{ item.filename }}" class="inline-flex items-center px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 shadow-xs transition" title="Télécharger sur votre poste">
+                                    <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                    Télécharger
+                                </a>
+                                <!-- Restaurer -->
+                                <form method="post" action="{% url 'core:database_restore' %}" class="inline-block" onsubmit="return confirm('Confirmez-vous la restauration immédiate depuis le fichier local {{ item.filename }} ? Une copie de sécurité préalable sera effectuée.');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="local_filename" value="{{ item.filename }}">
+                                    <button type="submit" class="inline-flex items-center px-2.5 py-1.5 border border-rose-300 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition" title="Restaurer ce point">
+                                        <svg class="w-3.5 h-3.5 mr-1 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                        Restaurer
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-8 text-center text-slate-400 text-xs">
+                Aucune sauvegarde locale n'est présente dans le répertoire <code class="bg-slate-100 px-1 py-0.5 rounded text-slate-600">backups/</code>.
+            </div>
+            {% endif %}
+        </div>
+
+    </main>
+
+    <!-- Pied de page -->
+    <footer class="bg-white border-t border-slate-200 py-3 mt-auto">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+            <div>Clinique Sidi Yahia 2 &bull; Système d'Information Hospitalier (SIH) &bull; Conforme HDS &amp; RGPD</div>
+            <div>Module Sauvegardes &amp; Continuité d'Activité</div>
+        </div>
+    </footer>
+
+</body>
+</html>

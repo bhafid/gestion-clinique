@@ -107,6 +107,10 @@
                         ⚙️ Paramètres Clinique
                     </a>
 
+                    <a href="{% url 'entrepot:dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+                        📦 Entrepôt WMS
+                    </a>
+
                     <a href="/facturation/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
                         🧾 Facturation
                     </a>
@@ -459,11 +463,27 @@
                                         {{ prod.get_categorie_display }}
                                     </span>
                                     {% endif %}
-                                    <div class="text-[11px] text-slate-500 mt-1">
-                                        📍 {{ prod.rayon_par_defaut }}
+
+                                    <!-- Localisation Entrepôt & Bacs WMS -->
+                                    <div class="mt-1.5 space-y-1">
+                                        {% if prod.entrepots_et_bacs %}
+                                            {% for loc in prod.entrepots_et_bacs %}
+                                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 text-[11px] font-semibold mr-1 mb-1">
+                                                <span>🏢 <strong>{{ loc.warehouse_name }}</strong></span>
+                                                <span class="text-indigo-400">&bull;</span>
+                                                <span class="font-mono font-bold text-indigo-700">📦 {{ loc.bin_code }}</span>
+                                                <span class="text-[10px] text-slate-500 font-bold">(x{{ loc.quantity }})</span>
+                                            </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="text-[11px] text-slate-500 font-medium">
+                                                📍 {{ prod.rayon_par_defaut }}
+                                            </div>
+                                        {% endif %}
                                     </div>
+
                                     {% if prod.fournisseur_prefere %}
-                                    <div class="text-[10px] text-slate-400">
+                                    <div class="text-[10px] text-slate-400 mt-0.5">
                                         Fournisseur : {{ prod.fournisseur_prefere.nom }}
                                     </div>
                                     {% endif %}
@@ -568,8 +588,16 @@
                                                         <td class="px-3 py-2.5 text-center font-extrabold text-slate-900">
                                                             {{ lot.quantite_disponible }}
                                                         </td>
-                                                        <td class="px-3 py-2.5 text-slate-600">
-                                                            {{ lot.emplacement_physique }}
+                                                        <td class="px-3 py-2.5 text-slate-700">
+                                                            {% if lot.storage_bin %}
+                                                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 font-semibold text-[11px]">
+                                                                <span>🏢 <strong>{{ lot.storage_bin.warehouse.name }}</strong></span>
+                                                                <span>&bull;</span>
+                                                                <span class="font-mono font-bold text-indigo-700">📦 {{ lot.storage_bin.code }}</span>
+                                                            </div>
+                                                            {% else %}
+                                                            <span>{{ lot.emplacement_physique }}</span>
+                                                            {% endif %}
                                                         </td>
                                                         <td class="px-3 py-2.5 text-center">
                                                             {% if lot.statut == 'ACTIF' %}
@@ -583,7 +611,17 @@
                                                             <div class="text-[10px] text-rose-600 mt-0.5">{{ lot.motif_quarantaine_rappel }}</div>
                                                             {% endif %}
                                                         </td>
-                                                        <td class="px-3 py-2.5 text-right">
+                                                        <td class="px-3 py-2.5 text-right whitespace-nowrap space-x-1.5">
+                                                            <!-- Bouton Ranger / Déplacer dans un Bac WMS -->
+                                                            <button
+                                                                type="button"
+                                                                onclick="openAssignBinModal({{ lot.id }}, '{{ lot.numero_lot|escapejs }}', '{{ prod.nom_commercial|escapejs }}', {{ lot.quantite_disponible }}, '{{ lot.storage_bin_id|default:'' }}')"
+                                                                class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-bold transition"
+                                                                title="Ranger ou déplacer ce lot dans un bac de rangement WMS"
+                                                            >
+                                                                📦 Ranger dans un bac
+                                                            </button>
+
                                                             {% if lot.statut in 'ACTIF,PROCHE_PEREMPTION,PERIME' %}
                                                             <form method="post" action="/pharmacie/lot/{{ lot.id }}/quarantine/" class="inline-flex items-center gap-1.5">
                                                                 {% csrf_token %}
@@ -836,6 +874,7 @@
                                         <th class="px-3 py-2.5 text-left">Numéro de Lot Fabricant *</th>
                                         <th class="px-3 py-2.5 text-left">Date de Péremption *</th>
                                         <th class="px-3 py-2.5 text-left">Emplacement de Stockage</th>
+                                        <th class="px-3 py-2.5 text-left">Ranger dans un Bac (WMS)</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200">
@@ -885,6 +924,14 @@
                                                 value="{{ lig.produit.rayon_par_defaut }}"
                                                 class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700"
                                             >
+                                        </td>
+                                        <td class="px-3 py-3">
+                                            <select name="storage_bin_{{ lig.id }}" class="w-full rounded-lg border border-indigo-300 bg-indigo-50/50 px-2.5 py-1.5 text-xs font-bold text-indigo-900 focus:border-indigo-600 focus:bg-white">
+                                                <option value="">-- Aucun bac (Stockage direct) --</option>
+                                                {% for b in bacs_disponibles %}
+                                                <option value="{{ b.id }}">📦 {{ b.code }} ({{ b.warehouse.name }} &bull; Dispo: {{ b.available_capacity|floatformat:0 }})</option>
+                                                {% endfor %}
+                                            </select>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -1134,6 +1181,68 @@
         </div>
     </div>
 
+    <!-- =================================================================== -->
+    <!-- MODAL 2 : AFFECTATION RAPIDE D'UN LOT DANS UN BAC WMS               -->
+    <!-- =================================================================== -->
+    <div id="assignBinModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden cockpit-card">
+            <div class="px-6 py-4 bg-indigo-700 text-white flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-extrabold flex items-center gap-2">
+                        <span>📦</span>
+                        <span>Ranger un Lot dans un Bac de Rangement (WMS)</span>
+                    </h3>
+                    <p class="text-[11px] text-indigo-100 mt-0.5">Affectation ou déplacement direct avec calcul de capacité automatique</p>
+                </div>
+                <button type="button" onclick="closeAssignBinModal()" class="text-indigo-200 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            <form id="assignBinForm" method="post" action="" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div class="p-3 rounded-xl bg-indigo-50/50 border border-indigo-200 text-xs space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 font-semibold">Produit :</span>
+                        <strong id="modalAssignProdName" class="text-slate-900 font-bold">-</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 font-semibold">Numéro de Lot :</span>
+                        <strong id="modalAssignLotNum" class="text-indigo-700 font-mono font-bold">-</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 font-semibold">Quantité à ranger :</span>
+                        <strong id="modalAssignQty" class="text-slate-900 font-bold">-</strong>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                        Sélectionner le Bac de Destination *
+                    </label>
+                    <select id="modalAssignBinSelect" name="storage_bin_id" class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:border-indigo-600 focus:outline-none">
+                        <option value="">-- Aucun bac (Retirer du WMS / Stockage libre) --</option>
+                        {% for b in bacs_disponibles %}
+                        <option value="{{ b.id }}">
+                            📦 {{ b.code }} &bull; {{ b.warehouse.name }} (Espace dispo : {{ b.available_capacity|floatformat:0 }} u.)
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[11px] text-slate-400 mt-1">
+                        Seuls les bacs actifs et non bloqués en maintenance sont éligibles.
+                    </p>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeAssignBinModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                        Annuler
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow-xs transition">
+                        Enregistrer l'Emplacement
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // 1. Gestion des Onglets
         function switchPharmTab(tabName) {
@@ -1178,6 +1287,29 @@
 
         function closeFefoModal() {
             const modal = document.getElementById('fefoDispenseModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // 3b. Modale Ranger dans un bac WMS
+        function openAssignBinModal(lotId, lotNum, prodName, qty, currentBinId) {
+            const modal = document.getElementById('assignBinModal');
+            const form = document.getElementById('assignBinForm');
+            if (form) form.action = '/pharmacie/lot/' + lotId + '/assign-bin/';
+            const pNameEl = document.getElementById('modalAssignProdName');
+            const lNumEl = document.getElementById('modalAssignLotNum');
+            const qtyEl = document.getElementById('modalAssignQty');
+            const selBin = document.getElementById('modalAssignBinSelect');
+
+            if (pNameEl) pNameEl.textContent = prodName;
+            if (lNumEl) lNumEl.textContent = lotNum;
+            if (qtyEl) qtyEl.textContent = qty + ' unité(s)';
+            if (selBin) selBin.value = currentBinId || '';
+
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeAssignBinModal() {
+            const modal = document.getElementById('assignBinModal');
             if (modal) modal.classList.add('hidden');
         }
 

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturation des Bacs &amp; Emplacements (WMS) | Clinique Sidi Yahia 2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hospital: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-full flex flex-col text-slate-800 antialiased">
+
+    <!-- En-tête -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <a href="{% url 'entrepot:dashboard' %}" class="w-12 h-14 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0">
+                    <img src="{{ CLINIC_LOGO_DATA_URI|default:'/static/images/logo_clinique.png' }}" alt="Logo Clinique" class="h-full w-auto object-contain">
+                </a>
+                <div>
+                    <h1 class="text-lg font-extrabold text-slate-900">
+                        💰 Moteur de Facturation des Bacs &amp; Emplacements
+                    </h1>
+                    <p class="text-xs text-slate-500">
+                        Calcul d'occupation au prorata journalier / forfait mensuel et génération des factures WMS
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'entrepot:dashboard' %}" class="inline-flex items-center px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors">
+                    &larr; Vue d'ensemble Bacs
+                </a>
+                <a href="/facturation/" class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                    🧾 Facturation Hospitalière
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Messages Flash -->
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-4 rounded-xl border text-xs font-bold flex items-center justify-between
+                {% if message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- KPIs financiers -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-amber-200 bg-amber-50/30 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-amber-800">En attente de facturation</div>
+                <div class="text-2xl font-black text-amber-900 mt-1 font-mono">{{ total_pending_amount }} <span class="text-xs">DA HT</span></div>
+                <div class="text-[11px] text-amber-700 mt-1">{{ pending_logs|length }} ligne(s) non facturée(s)</div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-emerald-200 bg-emerald-50/30 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Total Factures Émises</div>
+                <div class="text-2xl font-black text-emerald-900 mt-1 font-mono">{{ total_invoiced_amount }} <span class="text-xs">DA TTC</span></div>
+                <div class="text-[11px] text-emerald-700 mt-1">{{ invoices|length }} facture(s) commerciale(s) WMS</div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Clients sous Contrat</div>
+                <div class="text-2xl font-black text-slate-900 mt-1">{{ clients|length }}</div>
+                <div class="text-[11px] text-slate-500 mt-1">Laboratoires, entreprises &amp; partenaires</div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-hospital-200 bg-hospital-50/40 shadow-2xs">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-hospital-800">Bacs en Location</div>
+                <div class="text-2xl font-black text-hospital-700 mt-1">{{ all_rented_bins|length }}</div>
+                <div class="text-[11px] text-hospital-600 mt-1">Affectés à des tiers</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- Colonne Gauche (5 cols) : Calculateur de Facturation d'un Bac -->
+            <div class="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <div class="border-b border-slate-200 pb-3">
+                    <h2 class="text-sm font-extrabold uppercase tracking-wider text-slate-900">
+                        ⚡ 1. Calculer l'Occupation d'un Bac
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Sélectionnez le bac loué et la période d'occupation pour calculer le montant au prorata journalier ou forfaitaire.
+                    </p>
+                </div>
+
+                <form method="post" action="{% url 'entrepot:billing_calculate' %}" class="space-y-3.5 text-xs">
+                    {% csrf_token %}
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Bac Loué *</label>
+                        <select id="billingBinSelect" name="bin_id" required onchange="onBillingBinSelectChange()" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-800 focus:border-hospital-600 focus:outline-none">
+                            <option value="">-- Sélectionner un bac loué --</option>
+                            {% for b in all_rented_bins %}
+                            <option value="{{ b.id }}" data-client-id="{{ b.client_id }}" data-client-name="{{ b.client.name }}" data-daily="{{ b.daily_rate }}" data-monthly="{{ b.monthly_rate }}">
+                                {{ b.code }} ({{ b.warehouse.name }}) &bull; Locataire : {{ b.client.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Client Débiteur *</label>
+                        <select id="billingClientSelect" name="client_id" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-800 focus:border-hospital-600 focus:outline-none">
+                            <option value="">-- Sélectionner le client --</option>
+                            {% for cl in clients %}
+                            <option value="{{ cl.id }}">{{ cl.name }} ({{ cl.code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Date Début *</label>
+                            <input type="date" name="start_date" value="{{ default_start_date }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold text-slate-900">
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Date Fin *</label>
+                            <input type="date" name="end_date" value="{{ default_end_date }}" required class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold text-slate-900">
+                        </div>
+                    </div>
+
+                    <div id="tariffPreview" class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-medium hidden">
+                        Tarifs appliqués : <span id="tariffPreviewContent" class="font-bold text-slate-900"></span>
+                    </div>
+
+                    <button type="submit" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-hospital-700 text-white font-extrabold shadow-xs transition-colors">
+                        Calculer &amp; Ajouter aux Lignes à Facturer
+                    </button>
+                </form>
+            </div>
+
+            <!-- Colonne Droite (7 cols) : Lignes en Attente & Génération Facture -->
+            <div class="lg:col-span-7 space-y-6">
+                <!-- Formulaire de Génération de Facture -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                        <div>
+                            <h2 class="text-sm font-extrabold uppercase tracking-wider text-slate-900">
+                                🧾 2. Émettre une Facture Commerciale WMS
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-0.5">
+                                Cochez les lignes d'occupation calculées pour émettre une facture client globale
+                            </p>
+                        </div>
+                    </div>
+
+                    {% if pending_logs %}
+                    <form method="post" action="{% url 'entrepot:billing_generate_invoice' %}" class="space-y-4 text-xs">
+                        {% csrf_token %}
+
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Client à Facturer *</label>
+                            <select id="invoiceClientSelect" name="client_id" required onchange="filterPendingLogsByClient()" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-bold text-slate-900">
+                                <option value="">-- Sélectionner le client pour regrouper ses bacs --</option>
+                                {% for cl in clients %}
+                                <option value="{{ cl.id }}">{{ cl.name }} ({{ cl.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="border border-slate-200 rounded-xl overflow-hidden max-h-72 overflow-y-auto">
+                            <table class="min-w-full divide-y divide-slate-200 text-xs">
+                                <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
+                                    <tr>
+                                        <th class="py-2.5 px-3 text-left w-8">
+                                            <input type="checkbox" onclick="toggleAllCheckboxes(this)" class="rounded">
+                                        </th>
+                                        <th class="py-2.5 px-3 text-left">Bac &amp; Entrepôt</th>
+                                        <th class="py-2.5 px-3 text-left">Client</th>
+                                        <th class="py-2.5 px-3 text-left">Période</th>
+                                        <th class="py-2.5 px-3 text-right">Montant HT</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100" id="pendingLogsTableBody">
+                                    {% for log in pending_logs %}
+                                    <tr class="pending-log-row hover:bg-slate-50 transition-colors" data-client-id="{{ log.client_id }}">
+                                        <td class="py-2.5 px-3">
+                                            <input type="checkbox" name="billing_log_ids" value="{{ log.id }}" class="log-checkbox rounded">
+                                        </td>
+                                        <td class="py-2.5 px-3 font-mono font-bold text-slate-900">
+                                            {{ log.bin.code }}
+                                            <span class="text-[10px] text-slate-400 block font-normal">{{ log.bin.warehouse.name }}</span>
+                                        </td>
+                                        <td class="py-2.5 px-3 text-slate-700 font-medium">{{ log.client.name }}</td>
+                                        <td class="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                                            {{ log.start_date|date:"d/m/Y" }} &rarr; {{ log.end_date|date:"d/m/Y" }}
+                                        </td>
+                                        <td class="py-2.5 px-3 text-right font-black font-mono text-emerald-700">
+                                            {{ log.billed_amount }} DA
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Notes / Mentions sur la Facture</label>
+                            <input type="text" name="notes" placeholder="Ex: Règlement à 30 jours par virement bancaire..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-800">
+                        </div>
+
+                        <button type="submit" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-xs transition-colors">
+                            🧾 Générer la Facture Client WMS
+                        </button>
+                    </form>
+                    {% else %}
+                    <div class="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-slate-400 text-xs">
+                        Aucune ligne de location en attente. Utilisez le calculateur à gauche pour calculer une période.
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Historique des Factures WMS -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                    <h2 class="text-sm font-extrabold uppercase tracking-wider text-slate-900">
+                        📁 Factures WMS Récemment Émises
+                    </h2>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-xs">
+                            <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
+                                <tr>
+                                    <th class="py-2.5 px-3 text-left">N° Facture</th>
+                                    <th class="py-2.5 px-3 text-left">Client</th>
+                                    <th class="py-2.5 px-3 text-left">Émission</th>
+                                    <th class="py-2.5 px-3 text-right">Montant TTC</th>
+                                    <th class="py-2.5 px-3 text-center">Statut</th>
+                                    <th class="py-2.5 px-3 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                {% for inv in invoices %}
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="py-2.5 px-3 font-mono font-bold text-hospital-700">{{ inv.numero_facture }}</td>
+                                    <td class="py-2.5 px-3 font-medium text-slate-900">{{ inv.client.name }}</td>
+                                    <td class="py-2.5 px-3 text-slate-500 whitespace-nowrap">{{ inv.date_emission|date:"d/m/Y" }}</td>
+                                    <td class="py-2.5 px-3 text-right font-black font-mono text-slate-900">{{ inv.montant_ttc }} DA</td>
+                                    <td class="py-2.5 px-3 text-center">
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            {{ inv.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-right">
+                                        <a href="{% url 'entrepot:invoice_detail' inv.id %}" target="_blank" class="px-2.5 py-1 rounded-lg bg-hospital-600 hover:bg-hospital-700 text-white font-bold text-[11px]">
+                                            📄 Voir
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="py-6 text-center text-slate-400">Aucune facture WMS émise pour l'instant.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        function onBillingBinSelectChange() {
+            const sel = document.getElementById('billingBinSelect');
+            const opt = sel.options[sel.selectedIndex];
+            const clientSel = document.getElementById('billingClientSelect');
+            const preview = document.getElementById('tariffPreview');
+            const previewContent = document.getElementById('tariffPreviewContent');
+
+            if (opt && opt.dataset.clientId) {
+                clientSel.value = opt.dataset.clientId;
+                preview.classList.remove('hidden');
+                previewContent.textContent = `${opt.dataset.daily} DA HT / jour &bull; ${opt.dataset.monthly} DA HT / mois`;
+            } else {
+                preview.classList.add('hidden');
+            }
+        }
+
+        function filterPendingLogsByClient() {
+            const clientId = document.getElementById('invoiceClientSelect').value;
+            const rows = document.querySelectorAll('.pending-log-row');
+            rows.forEach(r => {
+                const rowClientId = r.dataset.clientId;
+                const checkbox = r.querySelector('.log-checkbox');
+                if (!clientId || rowClientId === clientId) {
+                    r.style.display = '';
+                    if (rowClientId === clientId) {
+                        checkbox.checked = true;
+                    }
+                } else {
+                    r.style.display = 'none';
+                    checkbox.checked = false;
+                }
+            });
+        }
+
+        function toggleAllCheckboxes(masterCheckbox) {
+            const checkboxes = document.querySelectorAll('.log-checkbox');
+            checkboxes.forEach(cb => {
+                if (cb.closest('tr').style.display !== 'none') {
+                    cb.checked = masterCheckbox.checked;
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+

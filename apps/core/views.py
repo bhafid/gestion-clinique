@@ -4,16 +4,22 @@ Extraction de la capacité des lits par service et matrice des gardes et astrein
 """
 
 from datetime import date, datetime, timedelta
+import io
 import json
+from pathlib import Path
+import sqlite3
+import tempfile
 from typing import Any, Dict, List
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.core.management import call_command
+from django.db import connection, connections, transaction
 from django.db.models import Count, Q
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -1373,6 +1379,8 @@ class ClinicSettingsView(LoginRequiredMixin, View):
             "etablissement": etab,
             "types_etablissement": TypeEtablissementSanteChoices.choices,
             "role_config": role_config,
+            "is_db_admin": bool(request.user.is_superuser or user_role == UserRole.ADMIN),
+            "db_engine": connection.vendor,
         }
         return render(request, self.template_name, context)
 
@@ -1606,6 +1614,180 @@ class PatientReadmitView(LoginRequiredMixin, View):
             f"— Lit {bed.service.name} • Ch. {bed.room_number} / Lit {bed.bed_number}.",
         )
         return redirect(next_url)
+
+
+def _require_database_admin(request: HttpRequest) -> None:
+    if not (
+        request.user.is_superuser
+        or getattr(request.user, "role", None) == UserRole.ADMIN
+    ):
+        raise PermissionDenied("Seul un administrateur peut sauvegarder ou restaurer la base de données.")
+
+
+class DatabaseBackupRestoreView(LoginRequiredMixin, TemplateView):
+    """
+    Page d'administration dédiée au Full Backup & Restore de la base de données :
+    - Téléchargement en 1-clic : Archive Complète ZIP, Copie SQLite (.sqlite3) ou Dump JSON (.json)
+    - Formulaire de téléversement et restauration sécurisée (.zip, .sqlite3, .json)
+    - Inventaire des points de restauration automatiques locaux conservés dans backups/
+    """
+
+    template_name = "core/database_backup_restore.html"
+
+    def get_context_data(self, **kwargs) -> Dict[str, Any]:
+        _require_database_admin(self.request)
+        context = super().get_context_data(**kwargs)
+        from apps.core.backup_service import list_local_backups
+
+        local_backups = list_local_backups()
+        context.update({
+            "db_engine": connection.vendor,
+            "db_name": str(connection.settings_dict.get("NAME", "")),
+            "local_backups": local_backups,
+            "total_local_backups": len(local_backups),
+        })
+        return context
+
+
+class DatabaseBackupView(LoginRequiredMixin, View):
+    """
+    GET /core/database/backup/?format=zip|sqlite|json
+    Exporte une sauvegarde complète de toute la base de données :
+    - format=zip    : Archive Full Backup ZIP (Base de données + Médias + Manifeste)
+    - format=sqlite : copie transactionnelle à chaud via sqlite3.Connection.backup() (.sqlite3)
+    - format=json   : export universel Django dumpdata (.json), compatible SQLite et PostgreSQL
+    """
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        _require_database_admin(request)
+        from apps.core.backup_service import (
+            export_full_zip_backup_bytes,
+            export_json_backup_bytes,
+            export_sqlite_backup_bytes,
+        )
+
+        fmt = (request.GET.get("format") or "zip").strip().lower()
+        stamp = timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")
+
+        if fmt == "zip":
+            payload = export_full_zip_backup_bytes()
+            SecurityAuditLog.log_action(
+                user=request.user,
+                action_type=AuditActionType.READ,
+                resource_name="Base de données (Full Backup ZIP)",
+                details=f"Full Backup ZIP téléchargé ({len(payload)} octets).",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+            response = HttpResponse(payload, content_type="application/zip")
+            response["Content-Disposition"] = f'attachment; filename="full_backup_clinique_{stamp}.zip"'
+            return response
+
+        if fmt == "sqlite" and connection.vendor == "sqlite":
+            payload = export_sqlite_backup_bytes()
+            SecurityAuditLog.log_action(
+                user=request.user,
+                action_type=AuditActionType.READ,
+                resource_name="Base de données (Backup SQLite)",
+                details=f"Sauvegarde complète SQLite téléchargée ({len(payload)} octets).",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+            response = HttpResponse(payload, content_type="application/x-sqlite3")
+            response["Content-Disposition"] = f'attachment; filename="backup_clinique_{stamp}.sqlite3"'
+            return response
+
+        # Export JSON universel (dumpdata)
+        payload = export_json_backup_bytes()
+        SecurityAuditLog.log_action(
+            user=request.user,
+            action_type=AuditActionType.READ,
+            resource_name="Base de données (Backup JSON)",
+            details=f"Sauvegarde complète JSON téléchargée ({len(payload)} octets).",
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+        response = HttpResponse(payload, content_type="application/json; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="backup_clinique_{stamp}.json"'
+        return response
+
+
+class DatabaseRestoreView(LoginRequiredMixin, View):
+    """
+    POST /core/database/restore/
+    Restaure la base de données depuis un fichier téléversé (.zip, .sqlite3, .json)
+    ou directement depuis un point de sauvegarde local existant dans backups/.
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        _require_database_admin(request)
+        from apps.core.backup_service import get_backup_dir, restore_database_from_bytes
+
+        redirect_url = request.META.get("HTTP_REFERER", reverse("core:database_dashboard"))
+        uploaded_file = request.FILES.get("backup_file")
+        local_filename = request.POST.get("local_filename", "").strip()
+        flush_first = request.POST.get("flush_before_restore") == "1"
+
+        if uploaded_file:
+            filename = uploaded_file.name
+            raw_bytes = uploaded_file.read()
+        elif local_filename:
+            # Sécurité anti path-traversal
+            clean_name = Path(local_filename).name
+            local_path = get_backup_dir() / clean_name
+            if not (local_path.is_file() and local_path.resolve().is_relative_to(get_backup_dir().resolve())):
+                messages.error(request, f"Fichier de sauvegarde locale « {clean_name} » introuvable.")
+                return redirect(redirect_url)
+            filename = clean_name
+            raw_bytes = local_path.read_bytes()
+        else:
+            messages.error(request, "Veuillez sélectionner un fichier à restaurer (.zip, .sqlite3 ou .json).")
+            return redirect(redirect_url)
+
+        success, msg = restore_database_from_bytes(
+            raw_bytes=raw_bytes,
+            filename=filename,
+            flush_first=flush_first,
+            create_safety=True,
+        )
+
+        if success:
+            SecurityAuditLog.log_action(
+                user=request.user,
+                action_type=AuditActionType.UPDATE,
+                resource_name="Base de données (Restore)",
+                details=f"Restauration BDD réussie depuis « {filename} ». {msg}",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+            messages.success(request, f"Restauration réussie : {msg}")
+        else:
+            messages.error(request, f"Échec de la restauration : {msg}")
+
+        return redirect(redirect_url)
+
+
+class DatabaseDownloadLocalBackupView(LoginRequiredMixin, View):
+    """GET /core/database/download-local/?filename=... : Téléchargement d'un snapshot local."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        _require_database_admin(request)
+        from apps.core.backup_service import get_backup_dir
+
+        filename = request.GET.get("filename", "").strip()
+        clean_name = Path(filename).name
+        local_path = get_backup_dir() / clean_name
+
+        if not (local_path.is_file() and local_path.resolve().is_relative_to(get_backup_dir().resolve())):
+            raise Http404("Fichier de sauvegarde introuvable.")
+
+        payload = local_path.read_bytes()
+        ext = local_path.suffix.lower()
+        content_type = (
+            "application/zip"
+            if ext == ".zip"
+            else ("application/x-sqlite3" if ext in [".sqlite3", ".db"] else "application/json")
+        )
+        response = HttpResponse(payload, content_type=content_type)
+        response["Content-Disposition"] = f'attachment; filename="{clean_name}"'
+        return response
+
 
 
 

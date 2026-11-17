@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environnements virtuels
+venv/
+env/
+ENV/
+.venv/
+
+# Bases de données locales & dev
+*.sqlite3
+*.db
+db_hospital_dev.sqlite3
+
+# Dossier des sauvegardes et uploads de secours
+backups/
+media/
+*.zip
+
+# Outils IA & Graphe de connaissances
+graphify-out/
+.graphify/
+
+# Fichiers temporaires de travail
+file
+*.tmp
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
